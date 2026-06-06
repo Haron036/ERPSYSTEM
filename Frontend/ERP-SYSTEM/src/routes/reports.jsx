@@ -6,23 +6,52 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { revenueSeries, salesByRegion, departmentHeadcount } from "@/lib/mock-data";
 
 const reports = [
-  { title: "Monthly Sales Report",  desc: "Net bookings, AOV, top customers",       icon: BarChart3 },
-  { title: "Inventory Valuation",   desc: "On-hand value by warehouse / category",  icon: BarChart3 },
-  { title: "Trial Balance",         desc: "Period-end GL trial balance",             icon: FileText },
-  { title: "Profit & Loss",         desc: "Comparative monthly P&L",                icon: FileText },
-  { title: "Aged Receivables",      desc: "Customer balances, 0–30, 30–60, 60+",   icon: FileSpreadsheet },
-  { title: "Procurement Spend",     desc: "Spend by supplier and category",         icon: BarChart3 },
+  { title: "Monthly Sales Report",  desc: "Net bookings, AOV, top customers",      icon: BarChart3,     data: () => revenueSeries },
+  { title: "Inventory Valuation",   desc: "On-hand value by warehouse / category", icon: BarChart3,     data: () => [] },
+  { title: "Trial Balance",         desc: "Period-end GL trial balance",            icon: FileText,      data: () => [] },
+  { title: "Profit & Loss",         desc: "Comparative monthly P&L",               icon: FileText,      data: () => revenueSeries },
+  { title: "Aged Receivables",      desc: "Customer balances, 0–30, 30–60, 60+",  icon: FileSpreadsheet, data: () => [] },
+  { title: "Procurement Spend",     desc: "Spend by supplier and category",        icon: BarChart3,     data: () => [] },
 ];
 
+function downloadCSV(filename, data) {
+  if (!data.length) {
+    alert("No data available for this report yet.");
+    return;
+  }
+  const headers = Object.keys(data[0]);
+  const rows = [headers, ...data.map((r) => headers.map((h) => r[h]))];
+  const csv = rows.map((r) => r.join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadPDF(title) {
+  alert(`PDF generation for "${title}" would be handled server-side or via a PDF library.`);
+}
+
 export default function ReportsPage() {
+  function handleExportAll() {
+    downloadCSV("revenue-report.csv", revenueSeries);
+  }
+
   return (
     <PageShell
       title="Reports & Analytics"
       breadcrumb="Finance & Insights"
       actions={
         <>
-          <Button variant="outline" size="sm"><FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />Excel</Button>
-          <Button size="sm"><Download className="mr-1.5 h-3.5 w-3.5" />Export PDF</Button>
+          <Button variant="outline" size="sm" onClick={handleExportAll}>
+            <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />Excel
+          </Button>
+          <Button size="sm" onClick={() => downloadPDF("Full Report")}>
+            <Download className="mr-1.5 h-3.5 w-3.5" />Export PDF
+          </Button>
         </>
       }
     >
@@ -84,8 +113,10 @@ export default function ReportsPage() {
                   <div className="text-sm font-medium">{r.title}</div>
                   <div className="text-xs text-muted-foreground">{r.desc}</div>
                   <div className="mt-2 flex gap-2">
-                    <Button size="sm" variant="outline" className="h-7 text-xs">PDF</Button>
-                    <Button size="sm" variant="outline" className="h-7 text-xs">Excel</Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs"
+                      onClick={() => downloadPDF(r.title)}>PDF</Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs"
+                      onClick={() => downloadCSV(`${r.title.toLowerCase().replace(/ /g, "-")}.csv`, r.data())}>Excel</Button>
                   </div>
                 </div>
               </div>

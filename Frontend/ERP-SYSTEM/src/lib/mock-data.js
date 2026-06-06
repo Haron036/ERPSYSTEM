@@ -152,4 +152,5 @@ export const departmentHeadcount = [
   { dept: "Finance", count: 18 },
   { dept: "HR", count: 9 },
   { dept: "Engineering", count: 41 },
+  {dept:"ICT",count:5},
 ];
