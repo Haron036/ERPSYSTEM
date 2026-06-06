@@ -23,11 +23,11 @@ export const revenueSeries = [
 ];
 
 export const salesByRegion = [
-  { name: "North America", value: 42 },
-  { name: "Europe", value: 28 },
-  { name: "Asia Pacific", value: 18 },
-  { name: "Latin America", value: 8 },
-  { name: "MEA", value: 4 },
+  { name: "Riftvalley", value: 42 },
+  { name: "Central", value: 28 },
+  { name: "Eastern", value: 18 },
+  { name: "Western", value: 8 },
+  { name: "Coast", value: 4 },
 ];
 
 export const inventoryStatus = [
