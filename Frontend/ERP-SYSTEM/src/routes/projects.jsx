@@ -10,20 +10,69 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { projects } from "@/lib/mock-data";
+import { useProjects, useCreateProject, useUpdateProject } from "@/hooks/useApi";
 
-const LEADS = ["Sarah Chen", "Marcus Wei", "Priya Nair", "Daniel Ortiz", "Hana Suzuki", "Liam O'Brien", "Aisha Khan"];
+const statusLabel = (s) => ({
+  ON_TRACK: "On Track",
+  AT_RISK:  "At Risk",
+  DELAYED:  "Delayed",
+  COMPLETED:"Completed",
+}[s] ?? s);
+
+const LEADS_LIST = [
+  "Sarah Chen","Marcus Wei","Priya Nair","Daniel Ortiz",
+  "Hana Suzuki","Liam O'Brien","Aisha Khan","Tomás García",
+];
+
+const EMPTY_PROJ = { name:"", leadName:"", deadline:"", status:"ON_TRACK", progressPercent: 0 };
 
 export default function ProjectsPage() {
-  const [projOpen, setProjOpen]     = useState(false);
-  const [projSuccess, setProjSuccess] = useState(false);
-  const [projForm, setProjForm]     = useState({ name: "", lead: "", deadline: "", status: "On Track" });
+  const { data: projects = [], isLoading } = useProjects();
+  const createProject = useCreateProject();
+  const updateProject = useUpdateProject();
 
-  function submitProj(e) {
+  const [projOpen,    setProjOpen]    = useState(false);
+  const [projSuccess, setProjSuccess] = useState(false);
+  const [projForm,    setProjForm]    = useState(EMPTY_PROJ);
+
+  // Inline progress editing
+  const [editingId,  setEditingId]  = useState(null);
+  const [editProgress, setEditProgress] = useState(0);
+
+  async function submitProj(e) {
     e.preventDefault();
-    setProjSuccess(true);
-    setTimeout(() => { setProjSuccess(false); setProjOpen(false); setProjForm({ name: "", lead: "", deadline: "", status: "On Track" }); }, 1500);
+    try {
+      await createProject.mutateAsync({
+        name:            projForm.name,
+        leadName:        projForm.leadName,
+        deadline:        projForm.deadline,
+        status:          projForm.status,
+        progressPercent: parseInt(projForm.progressPercent) || 0,
+      });
+      setProjSuccess(true);
+      setTimeout(() => { setProjSuccess(false); setProjOpen(false); setProjForm(EMPTY_PROJ); }, 1500);
+    } catch (err) { alert(err.message); }
   }
+
+  async function saveProgress(project) {
+    try {
+      await updateProject.mutateAsync({
+        id:              project.id,
+        name:            project.name,
+        leadName:        project.leadName,
+        deadline:        project.deadline,
+        status:          project.status,
+        progressPercent: editProgress,
+      });
+      setEditingId(null);
+    } catch (err) { alert(err.message); }
+  }
+
+  const onTrack   = projects.filter((p) => p.status === "ON_TRACK").length;
+  const atRisk    = projects.filter((p) => p.status === "AT_RISK").length;
+  const avgProgress = projects.length
+    ? Math.round(projects.reduce((s, p) => s + (p.progressPercent ?? 0), 0) / projects.length)
+    : 62;
 
   return (
     <>
@@ -37,43 +86,66 @@ export default function ProjectsPage() {
         }
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Active Projects" value={18} change={5.0}  icon={<FolderKanban className="h-4 w-4" />} />
-          <KpiCard label="On Track"        value={14} change={2.1}  icon={<FolderKanban className="h-4 w-4" />} />
-          <KpiCard label="At Risk"         value={3}  change={50.0} icon={<FolderKanban className="h-4 w-4" />} />
-          <KpiCard label="Avg Progress"    value={62} change={3.4}  icon={<FolderKanban className="h-4 w-4" />} />
+          <KpiCard label="Active Projects" value={projects.length || 18} change={5.0}  icon={<FolderKanban className="h-4 w-4" />} />
+          <KpiCard label="On Track"        value={onTrack || 14}         change={2.1}  icon={<FolderKanban className="h-4 w-4" />} />
+          <KpiCard label="At Risk"         value={atRisk  || 3}          change={50.0} icon={<FolderKanban className="h-4 w-4" />} />
+          <KpiCard label="Avg Progress"    value={avgProgress}           change={3.4}  icon={<FolderKanban className="h-4 w-4" />} />
         </div>
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {projects.map((p) => (
-            <Card key={p.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
+        {isLoading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Loading projects…</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {projects.map((p) => (
+              <Card key={p.id}>
+                <div className="flex items-start justify-between gap-2 p-6 pb-2">
                   <div>
-                    <CardTitle className="text-sm font-semibold">{p.name}</CardTitle>
-                    <CardDescription className="text-xs">
-                      <span className="font-mono">{p.id}</span> · Lead: {p.lead} · Due {p.deadline}
-                    </CardDescription>
+                    <p className="text-sm font-semibold">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-mono">{p.projectCode}</span> · Lead: {p.leadName} · Due {p.deadline}
+                    </p>
                   </div>
-                  <StatusBadge value={p.status} />
+                  <StatusBadge value={statusLabel(p.status)} />
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Progress</span>
-                  <span className="font-medium tabular-nums">{p.progress}%</span>
-                </div>
-                <Progress value={p.progress} className="mt-1.5 h-2" />
-                <div className="mt-3 flex gap-2 text-[11px]">
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">12 tasks</span>
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">5 milestones</span>
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">7 members</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                <CardContent>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Progress</span>
+                    {editingId === p.id ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number" min="0" max="100"
+                          className="h-6 w-16 text-xs"
+                          value={editProgress}
+                          onChange={(e) => setEditProgress(Number(e.target.value))}
+                        />
+                        <Button size="sm" className="h-6 text-xs px-2" onClick={() => saveProgress(p)}
+                          disabled={updateProject.isPending}>Save</Button>
+                        <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => setEditingId(null)}>✕</Button>
+                      </div>
+                    ) : (
+                      <span
+                        className="font-medium tabular-nums cursor-pointer hover:text-primary"
+                        title="Click to edit progress"
+                        onClick={() => { setEditingId(p.id); setEditProgress(p.progressPercent ?? 0); }}
+                      >
+                        {p.progressPercent ?? 0}%
+                      </span>
+                    )}
+                  </div>
+                  <Progress value={p.progressPercent ?? 0} className="mt-1.5 h-2" />
+                  <div className="mt-3 flex gap-2 text-[11px]">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">12 tasks</span>
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">5 milestones</span>
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">7 members</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </PageShell>
 
+      {/* New Project Dialog */}
       <Dialog open={projOpen} onOpenChange={setProjOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>New Project</DialogTitle></DialogHeader>
@@ -92,10 +164,10 @@ export default function ProjectsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Project Lead</Label>
-                  <Select value={projForm.lead} onValueChange={(v) => setProjForm((f) => ({ ...f, lead: v }))}>
+                  <Select value={projForm.leadName} onValueChange={(v) => setProjForm((f) => ({ ...f, leadName: v }))}>
                     <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
                     <SelectContent>
-                      {LEADS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                      {LEADS_LIST.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -105,20 +177,28 @@ export default function ProjectsPage() {
                     onChange={(e) => setProjForm((f) => ({ ...f, deadline: e.target.value }))} required />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Initial Status</Label>
-                <Select value={projForm.status} onValueChange={(v) => setProjForm((f) => ({ ...f, status: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="On Track">On Track</SelectItem>
-                    <SelectItem value="At Risk">At Risk</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Initial Status</Label>
+                  <Select value={projForm.status} onValueChange={(v) => setProjForm((f) => ({ ...f, status: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ON_TRACK">On Track</SelectItem>
+                      <SelectItem value="AT_RISK">At Risk</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Initial Progress (%)</Label>
+                  <Input type="number" min="0" max="100" placeholder="0" value={projForm.progressPercent}
+                    onChange={(e) => setProjForm((f) => ({ ...f, progressPercent: e.target.value }))} />
+                </div>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setProjOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={!projForm.name || !projForm.lead || !projForm.deadline}>
-                  Create Project
+                <Button type="submit"
+                  disabled={!projForm.name || !projForm.leadName || !projForm.deadline || createProject.isPending}>
+                  {createProject.isPending ? "Saving…" : "Create Project"}
                 </Button>
               </DialogFooter>
             </form>

@@ -1,34 +1,120 @@
-import { createRouter, createRoute, createRootRoute } from "@tanstack/react-router";
+import { createRouter, createRoute, createRootRoute, redirect } from "@tanstack/react-router";
 import { QueryClient } from "@tanstack/react-query";
+import { token } from "./lib/api";
 
 // Page imports
-import Dashboard from "./routes/index";
-import InventoryPage from "./routes/inventory";
-import SalesPage from "./routes/sales";
+import LoginPage       from "./routes/login";
+import RegisterPage    from "./routes/register"; 
+import Dashboard       from "./routes/index";
+import InventoryPage   from "./routes/inventory";
+import SalesPage       from "./routes/sales";
 import ProcurementPage from "./routes/procurement";
-import AccountingPage from "./routes/accounting";
-import EmployeesPage from "./routes/employees";
-import CrmPage from "./routes/crm";
-import ProjectsPage from "./routes/projects";
-import ReportsPage from "./routes/reports";
+import AccountingPage  from "./routes/accounting";
+import EmployeesPage   from "./routes/employees";
+import CrmPage         from "./routes/crm";
+import ProjectsPage    from "./routes/projects";
+import ReportsPage     from "./routes/reports";
 
-const queryClient = new QueryClient();
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
 
-// Root route
+// ── Auth guard — redirects to /login if no token ──────────────────────────────
+function requireAuth() {
+  if (!token.get()) {
+    throw redirect({ to: "/login" });
+  }
+}
+
+// ── Root route ────────────────────────────────────────────────────────────────
 const rootRoute = createRootRoute();
 
-// Child routes
-const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: Dashboard });
-const inventoryRoute = createRoute({ getParentRoute: () => rootRoute, path: "/inventory", component: InventoryPage });
-const salesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/sales", component: SalesPage });
-const procurementRoute = createRoute({ getParentRoute: () => rootRoute, path: "/procurement", component: ProcurementPage });
-const accountingRoute = createRoute({ getParentRoute: () => rootRoute, path: "/accounting", component: AccountingPage });
-const employeesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/employees", component: EmployeesPage });
-const crmRoute = createRoute({ getParentRoute: () => rootRoute, path: "/crm", component: CrmPage });
-const projectsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/projects", component: ProjectsPage });
-const reportsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/reports", component: ReportsPage });
+// ── Public routes ─────────────────────────────────────────────────────────────
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/login",
+  component: LoginPage,
+});
 
+const registerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/register", // 👈 Declared register path as a public endpoint
+  component: RegisterPage,
+});
+
+// ── Protected routes ──────────────────────────────────────────────────────────
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/",
+  beforeLoad: requireAuth,
+  component: Dashboard,
+});
+
+const inventoryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/inventory",
+  beforeLoad: requireAuth,
+  component: InventoryPage,
+});
+
+const salesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/sales",
+  beforeLoad: requireAuth,
+  component: SalesPage,
+});
+
+const procurementRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/procurement",
+  beforeLoad: requireAuth,
+  component: ProcurementPage,
+});
+
+const accountingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/accounting",
+  beforeLoad: requireAuth,
+  component: AccountingPage,
+});
+
+const employeesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/employees",
+  beforeLoad: requireAuth,
+  component: EmployeesPage,
+});
+
+const crmRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/crm",
+  beforeLoad: requireAuth,
+  component: CrmPage,
+});
+
+const projectsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/projects",
+  beforeLoad: requireAuth,
+  component: ProjectsPage,
+});
+
+const reportsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/reports",
+  beforeLoad: requireAuth,
+  component: ReportsPage,
+});
+
+// ── Route tree ────────────────────────────────────────────────────────────────
 const routeTree = rootRoute.addChildren([
+  loginRoute,
+  registerRoute,
   indexRoute,
   inventoryRoute,
   salesRoute,

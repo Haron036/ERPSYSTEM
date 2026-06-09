@@ -40,14 +40,29 @@ public class AuthService {
         if (userRepo.existsByEmail(req.getEmail()))
             throw new ConflictException("Email already registered: " + req.getEmail());
 
+        // ── Convert String Role to Domain Enum type Safely ────────────────────
+        AppUser.Role userRole = AppUser.Role.VIEWER; // Fallback default
+
+        if (req.getRole() != null && !req.getRole().trim().isEmpty()) {
+            try {
+                // Converts "ADMIN" or "admin" to AppUser.Role.ADMIN
+                userRole = AppUser.Role.valueOf(req.getRole().toUpperCase().trim());
+            } catch (IllegalArgumentException e) {
+                // Fallback default if an invalid role string somehow reaches the backend
+                userRole = AppUser.Role.VIEWER;
+            }
+        }
+
+        // ── Map and persist the complete AppUser Record ───────────────────────
         AppUser user = AppUser.builder()
                 .fullName(req.getFullName())
                 .email(req.getEmail())
                 .password(encoder.encode(req.getPassword()))
-                .role(req.getRole() != null ? req.getRole() : AppUser.Role.VIEWER)
+                .role(userRole) // Assigned cleanly parsed enum object here
                 .build();
         userRepo.save(user);
 
+        // ── Issue standard payload token context response ─────────────────────
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
         return AuthDto.LoginResponse.builder()
                 .token(token)

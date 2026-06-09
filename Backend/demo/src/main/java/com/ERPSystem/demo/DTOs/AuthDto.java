@@ -13,10 +13,11 @@ public class AuthDto {
     @Getter
     @Setter
     public static class LoginRequest {
-        @Email
-        @NotBlank
+        @Email(message = "Invalid email format")
+        @NotBlank(message = "Email cannot be blank")
         private String email;
-        @NotBlank
+
+        @NotBlank(message = "Password cannot be blank")
         private String password;
     }
 
@@ -30,10 +31,18 @@ public class AuthDto {
 
     @Getter @Setter
     public static class RegisterRequest {
-        @NotBlank private String fullName;
-        @Email @NotBlank private String email;
-        @NotBlank @Size(min = 6) private String password;
-        private AppUser.Role role;
-    }
+        @NotBlank(message = "Full name is required")
+        private String fullName;
 
+        @Email(message = "Invalid email format")
+        @NotBlank(message = "Email is required")
+        private String email;
+
+        @NotBlank(message = "Password is required")
+        @Size(min = 6, message = "Password must be at least 6 characters")
+        private String password;
+
+
+        private String role;
+    }
 }

@@ -5,7 +5,7 @@ import {
 } from "recharts";
 import {
   DollarSign, ShoppingBag, Users, Package, AlertTriangle,
-  CheckCircle2, Clock, FileText, X, Plus,
+  CheckCircle2, Clock, FileText, Plus,
 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { KpiCard } from "@/components/kpi-card";
@@ -15,15 +15,12 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
-import { kpis, revenueSeries, salesByRegion, recentActivities, inventoryStatus } from "@/lib/mock-data";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useKpis, useCreateLedgerEntry } from "@/hooks/useApi";
+import { revenueSeries, salesByRegion, recentActivities, inventoryStatus } from "@/lib/mock-data";
 
-const PIE_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
+const PIE_COLORS = ["var(--chart-1)","var(--chart-2)","var(--chart-3)","var(--chart-4)","var(--chart-5)"];
 
 const activityIcon = (type) => {
   switch (type) {
@@ -36,34 +33,52 @@ const activityIcon = (type) => {
 };
 
 export default function Dashboard() {
-  const [txOpen, setTxOpen] = useState(false);
-  const [txForm, setTxForm] = useState({ type: "", account: "", amount: "", ref: "", note: "" });
+  // ── Live KPIs ──────────────────────────────────────────────
+  const { data: kpiData } = useKpis();
+
+  // ── New Transaction dialog ─────────────────────────────────
+  const createEntry  = useCreateLedgerEntry();
+  const [txOpen, setTxOpen]       = useState(false);
+  const [txForm, setTxForm]       = useState({ type: "", account: "", amount: "", ref: "", note: "" });
   const [txSuccess, setTxSuccess] = useState(false);
 
-  function handleTxSubmit(e) {
+  async function handleTxSubmit(e) {
     e.preventDefault();
-    setTxSuccess(true);
-    setTimeout(() => {
-      setTxSuccess(false);
-      setTxOpen(false);
-      setTxForm({ type: "", account: "", amount: "", ref: "", note: "" });
-    }, 1500);
+    try {
+      await createEntry.mutateAsync({
+        entryDate:  new Date().toISOString().slice(0, 10),
+        account:    txForm.account,
+        debit:      txForm.type === "debit"  ? parseFloat(txForm.amount) : 0,
+        credit:     txForm.type === "credit" ? parseFloat(txForm.amount) : 0,
+        reference:  txForm.ref,
+        memo:       txForm.note,
+        entryType:  txForm.type === "debit" ? "EXPENSE" : "REVENUE",
+      });
+      setTxSuccess(true);
+      setTimeout(() => { setTxSuccess(false); setTxOpen(false); setTxForm({ type:"", account:"", amount:"", ref:"", note:"" }); }, 1500);
+    } catch (err) {
+      alert(err.message);
+    }
   }
 
   function handleExport() {
-    const rows = [
-      ["Month", "Revenue", "Expenses", "Profit"],
-      ...revenueSeries.map((r) => [r.month, r.revenue, r.expenses, r.profit]),
-    ];
-    const csv = rows.map((r) => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "dashboard-export.csv";
-    a.click();
+    const rows = [["Month","Revenue","Expenses","Profit"], ...revenueSeries.map((r) => [r.month, r.revenue, r.expenses, r.profit])];
+    const csv  = rows.map((r) => r.join(",")).join("\n");
+    const url  = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    Object.assign(document.createElement("a"), { href: url, download: "dashboard.csv" }).click();
     URL.revokeObjectURL(url);
   }
+
+  // Use live data when available, fall back to mock values
+  const kpis = {
+    revenue:   { value: kpiData?.ytdRevenue    ?? 2_487_320,  change: 12.4 },
+    orders:    { value: kpiData?.totalOrders   ?? 1_842,      change: 8.1  },
+    customers: { value: kpiData?.activeCustomers ?? 3_209,    change: 4.7  },
+    inventory: { value: kpiData?.totalInventoryUnits ?? 18_402, change: -2.3 },
+    lowStock:  kpiData?.lowStockCount    ?? 77,
+    overdue:   kpiData?.overdueInvoices  ?? 12,
+    pending:   kpiData?.pendingApprovals ?? 8,
+  };
 
   return (
     <>
@@ -79,13 +94,15 @@ export default function Dashboard() {
           </>
         }
       >
+        {/* KPI Cards */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="YTD Revenue"      value={kpis.revenue.value}   change={kpis.revenue.change}   format="currency" icon={<DollarSign className="h-4 w-4" />} />
-          <KpiCard label="Sales Orders"     value={kpis.orders.value}    change={kpis.orders.change}    icon={<ShoppingBag className="h-4 w-4" />} />
-          <KpiCard label="Active Customers" value={kpis.customers.value} change={kpis.customers.change} icon={<Users className="h-4 w-4" />} />
-          <KpiCard label="Inventory Units"  value={kpis.inventory.value} change={kpis.inventory.change} icon={<Package className="h-4 w-4" />} />
+          <KpiCard label="YTD Revenue"      value={Number(kpis.revenue.value)}   change={kpis.revenue.change}   format="currency" icon={<DollarSign className="h-4 w-4" />} />
+          <KpiCard label="Sales Orders"     value={Number(kpis.orders.value)}    change={kpis.orders.change}    icon={<ShoppingBag className="h-4 w-4" />} />
+          <KpiCard label="Active Customers" value={Number(kpis.customers.value)} change={kpis.customers.change} icon={<Users className="h-4 w-4" />} />
+          <KpiCard label="Inventory Units"  value={Number(kpis.inventory.value)} change={kpis.inventory.change} icon={<Package className="h-4 w-4" />} />
         </div>
 
+        {/* Revenue vs Expenses */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <CardHeader className="pb-2">
@@ -113,8 +130,8 @@ export default function Dashboard() {
                     </defs>
                     <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
-                    <YAxis tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+                    <Tooltip contentStyle={{ background:"var(--popover)", border:"1px solid var(--border)", borderRadius:6, fontSize:12 }} />
                     <Area type="monotone" dataKey="revenue"  stroke="var(--chart-1)" fill="url(#rev)" strokeWidth={2} />
                     <Area type="monotone" dataKey="expenses" stroke="var(--chart-5)" fill="url(#exp)" strokeWidth={2} />
                   </AreaChart>
@@ -123,6 +140,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
+          {/* Sales by Region */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Sales by Region</CardTitle>
@@ -133,11 +151,9 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={salesByRegion} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={2}>
-                      {salesByRegion.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
+                      {salesByRegion.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
-                    <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 12 }} />
+                    <Tooltip contentStyle={{ background:"var(--popover)", border:"1px solid var(--border)", borderRadius:6, fontSize:12 }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -156,6 +172,7 @@ export default function Dashboard() {
           </Card>
         </div>
 
+        {/* Inventory + Activity */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <CardHeader className="pb-2">
@@ -165,14 +182,14 @@ export default function Dashboard() {
             <CardContent>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={inventoryStatus} margin={{ left: -10, right: 8, top: 8 }}>
+                  <BarChart data={inventoryStatus} margin={{ left:-10, right:8, top:8 }}>
                     <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="category" tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
-                    <YAxis tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
-                    <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 12 }} />
-                    <Bar dataKey="inStock"    fill="var(--chart-3)" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="lowStock"   fill="var(--chart-4)" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="outOfStock" fill="var(--chart-5)" radius={[3, 3, 0, 0]} />
+                    <XAxis dataKey="category" tick={{ fontSize:11 }} stroke="var(--muted-foreground)" />
+                    <YAxis tick={{ fontSize:11 }} stroke="var(--muted-foreground)" />
+                    <Tooltip contentStyle={{ background:"var(--popover)", border:"1px solid var(--border)", borderRadius:6, fontSize:12 }} />
+                    <Bar dataKey="inStock"    fill="var(--chart-3)" radius={[3,3,0,0]} />
+                    <Bar dataKey="lowStock"   fill="var(--chart-4)" radius={[3,3,0,0]} />
+                    <Bar dataKey="outOfStock" fill="var(--chart-5)" radius={[3,3,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -191,7 +208,7 @@ export default function Dashboard() {
                 <div key={a.id} className="flex items-start gap-3 text-sm">
                   <Avatar className="h-7 w-7">
                     <AvatarFallback className="bg-muted text-[10px]">
-                      {a.user.split(" ").map((p) => p[0]).join("").slice(0, 2)}
+                      {a.user.split(" ").map((p) => p[0]).join("").slice(0,2)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0 flex-1">
@@ -208,6 +225,7 @@ export default function Dashboard() {
           </Card>
         </div>
 
+        {/* Action Required — live counts */}
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
@@ -219,17 +237,17 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <div className="rounded-md border bg-warning/5 p-3">
                 <div className="text-xs text-muted-foreground">Low stock items</div>
-                <div className="mt-1 text-xl font-semibold">77</div>
+                <div className="mt-1 text-xl font-semibold">{kpis.lowStock}</div>
                 <div className="text-xs text-warning-foreground/80">across 5 categories</div>
               </div>
               <div className="rounded-md border bg-destructive/5 p-3">
                 <div className="text-xs text-muted-foreground">Overdue invoices</div>
-                <div className="mt-1 text-xl font-semibold">12</div>
-                <div className="text-xs text-destructive">$184,200 outstanding</div>
+                <div className="mt-1 text-xl font-semibold">{kpis.overdue}</div>
+                <div className="text-xs text-destructive">outstanding</div>
               </div>
               <div className="rounded-md border bg-info/5 p-3">
                 <div className="text-xs text-muted-foreground">Pending approvals</div>
-                <div className="mt-1 text-xl font-semibold">8</div>
+                <div className="mt-1 text-xl font-semibold">{kpis.pending}</div>
                 <div className="text-xs text-info">PRs, time-off, journals</div>
               </div>
             </div>
@@ -240,9 +258,7 @@ export default function Dashboard() {
       {/* New Transaction Dialog */}
       <Dialog open={txOpen} onOpenChange={setTxOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>New Transaction</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>New Transaction</DialogTitle></DialogHeader>
           {txSuccess ? (
             <div className="flex flex-col items-center gap-2 py-6">
               <CheckCircle2 className="h-10 w-10 text-success" />
@@ -251,14 +267,12 @@ export default function Dashboard() {
           ) : (
             <form onSubmit={handleTxSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <Label>Transaction Type</Label>
+                <Label>Entry Type</Label>
                 <Select value={txForm.type} onValueChange={(v) => setTxForm((f) => ({ ...f, type: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select type…" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Debit or Credit…" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="revenue">Revenue</SelectItem>
-                    <SelectItem value="expense">Expense</SelectItem>
-                    <SelectItem value="transfer">Transfer</SelectItem>
-                    <SelectItem value="journal">Journal Entry</SelectItem>
+                    <SelectItem value="debit">Debit (Expense / Asset)</SelectItem>
+                    <SelectItem value="credit">Credit (Revenue / Income)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -267,48 +281,37 @@ export default function Dashboard() {
                 <Select value={txForm.account} onValueChange={(v) => setTxForm((f) => ({ ...f, account: v }))}>
                   <SelectTrigger><SelectValue placeholder="Select account…" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1000">1000 · Cash</SelectItem>
-                    <SelectItem value="4000">4000 · Sales Revenue</SelectItem>
-                    <SelectItem value="5000">5000 · COGS</SelectItem>
-                    <SelectItem value="6100">6100 · Payroll Expense</SelectItem>
-                    <SelectItem value="1200">1200 · Inventory</SelectItem>
+                    <SelectItem value="1000 · Cash">1000 · Cash</SelectItem>
+                    <SelectItem value="1200 · Inventory">1200 · Inventory</SelectItem>
+                    <SelectItem value="4000 · Sales Revenue">4000 · Sales Revenue</SelectItem>
+                    <SelectItem value="5000 · COGS">5000 · COGS</SelectItem>
+                    <SelectItem value="6100 · Payroll Expense">6100 · Payroll Expense</SelectItem>
+                    <SelectItem value="2100 · Payroll Payable">2100 · Payroll Payable</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Amount ($)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={txForm.amount}
-                    onChange={(e) => setTxForm((f) => ({ ...f, amount: e.target.value }))}
-                    required
-                  />
+                  <Input type="number" min="0" step="0.01" placeholder="0.00"
+                    value={txForm.amount} onChange={(e) => setTxForm((f) => ({ ...f, amount: e.target.value }))} required />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Reference</Label>
-                  <Input
-                    placeholder="e.g. INV-10299"
-                    value={txForm.ref}
-                    onChange={(e) => setTxForm((f) => ({ ...f, ref: e.target.value }))}
-                  />
+                  <Input placeholder="e.g. INV-10299"
+                    value={txForm.ref} onChange={(e) => setTxForm((f) => ({ ...f, ref: e.target.value }))} />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Note (optional)</Label>
-                <Input
-                  placeholder="Brief description…"
-                  value={txForm.note}
-                  onChange={(e) => setTxForm((f) => ({ ...f, note: e.target.value }))}
-                />
+                <Input placeholder="Brief description…"
+                  value={txForm.note} onChange={(e) => setTxForm((f) => ({ ...f, note: e.target.value }))} />
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setTxOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={!txForm.type || !txForm.account || !txForm.amount}>
-                  Record Transaction
+                <Button type="submit"
+                  disabled={!txForm.type || !txForm.account || !txForm.amount || createEntry.isPending}>
+                  {createEntry.isPending ? "Saving…" : "Record Transaction"}
                 </Button>
               </DialogFooter>
             </form>

@@ -11,50 +11,76 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { suppliers, purchaseOrders } from "@/lib/mock-data";
+import { usePurchaseOrders, useSuppliers, useCreatePurchaseOrder } from "@/hooks/useApi";
+
+const poStatusLabel = (s) => ({
+  PENDING_APPROVAL: "Pending Approval",
+  APPROVED: "Approved",
+  IN_TRANSIT: "In Transit",
+  RECEIVED: "Received",
+  CANCELLED: "Cancelled",
+}[s] ?? s);
+
+const EMPTY_PO  = { supplierId:"", orderDate:"", total:"", notes:"" };
+const EMPTY_REQ = { item:"", qty:"", dept:"", reason:"" };
 
 export default function ProcurementPage() {
-  const [poOpen, setPoOpen]   = useState(false);
-  const [reqOpen, setReqOpen] = useState(false);
-  const [poSuccess, setPoSuccess]   = useState(false);
-  const [reqSuccess, setReqSuccess] = useState(false);
-  const [poForm,  setPoForm]  = useState({ supplier: "", date: "", total: "", notes: "" });
-  const [reqForm, setReqForm] = useState({ item: "", qty: "", dept: "", reason: "" });
+  const { data: pos = [],       isLoading } = usePurchaseOrders();
+  const { data: suppliers = [] }            = useSuppliers();
+  const createPo = useCreatePurchaseOrder();
 
-  function submitPo(e) {
+  const [poOpen,  setPoOpen]    = useState(false);
+  const [reqOpen, setReqOpen]   = useState(false);
+  const [poSuccess,  setPoSuccess]  = useState(false);
+  const [reqSuccess, setReqSuccess] = useState(false);
+  const [poForm,  setPoForm]    = useState(EMPTY_PO);
+  const [reqForm, setReqForm]   = useState(EMPTY_REQ);
+
+  async function submitPo(e) {
     e.preventDefault();
-    setPoSuccess(true);
-    setTimeout(() => { setPoSuccess(false); setPoOpen(false); setPoForm({ supplier: "", date: "", total: "", notes: "" }); }, 1500);
+    try {
+      await createPo.mutateAsync({
+        supplierId: parseInt(poForm.supplierId),
+        orderDate:  poForm.orderDate,
+        total:      parseFloat(poForm.total),
+        notes:      poForm.notes,
+      });
+      setPoSuccess(true);
+      setTimeout(() => { setPoSuccess(false); setPoOpen(false); setPoForm(EMPTY_PO); }, 1500);
+    } catch (err) { alert(err.message); }
   }
 
   function submitReq(e) {
     e.preventDefault();
+    // Requisitions are local-only for now (no dedicated backend endpoint)
     setReqSuccess(true);
-    setTimeout(() => { setReqSuccess(false); setReqOpen(false); setReqForm({ item: "", qty: "", dept: "", reason: "" }); }, 1500);
+    setTimeout(() => { setReqSuccess(false); setReqOpen(false); setReqForm(EMPTY_REQ); }, 1500);
   }
 
+  const pending  = pos.filter((p) => p.status === "PENDING_APPROVAL").length;
+  const openPos  = pos.filter((p) => !["RECEIVED","CANCELLED"].includes(p.status)).length;
+  const mtdSpend = pos.reduce((s, p) => s + Number(p.total), 0);
+
   const supplierCols = [
-    { key: "id",       header: "ID" },
-    { key: "name",     header: "Supplier" },
-    { key: "contact",  header: "Contact" },
-    { key: "country",  header: "Country" },
-    { key: "rating",   header: "Rating", align: "right", render: (r) => `${r.rating.toFixed(1)} ★` },
-    { key: "leadTime", header: "Lead Time" },
+    { key:"supplierCode",  header:"ID" },
+    { key:"name",          header:"Supplier" },
+    { key:"contactPerson", header:"Contact" },
+    { key:"country",       header:"Country" },
+    { key:"rating",        header:"Rating", align:"right", render:(r) => `${Number(r.rating).toFixed(1)} ★` },
+    { key:"leadTime",      header:"Lead Time" },
   ];
 
   const poCols = [
-    { key: "id",       header: "PO #",     render: (r) => <span className="font-mono text-xs">{r.id}</span> },
-    { key: "supplier", header: "Supplier" },
-    { key: "date",     header: "Date" },
-    { key: "total",    header: "Total",   align: "right", render: (r) => `$${r.total.toLocaleString()}` },
-    { key: "status",   header: "Status",  render: (r) => <StatusBadge value={r.status} /> },
+    { key:"poNumber",     header:"PO #",    render:(r) => <span className="font-mono text-xs">{r.poNumber}</span> },
+    { key:"supplierName", header:"Supplier" },
+    { key:"orderDate",    header:"Date" },
+    { key:"total",        header:"Total", align:"right", render:(r) => `$${Number(r.total).toLocaleString()}` },
+    { key:"status",       header:"Status", render:(r) => <StatusBadge value={poStatusLabel(r.status)} /> },
   ];
 
   return (
     <>
-      <PageShell
-        title="Procurement"
-        breadcrumb="Operations"
+      <PageShell title="Procurement" breadcrumb="Operations"
         actions={
           <>
             <Button variant="outline" size="sm" onClick={() => setReqOpen(true)}>
@@ -67,12 +93,11 @@ export default function ProcurementPage() {
         }
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Active Suppliers" value={68}     change={1.2}  icon={<Building2 className="h-4 w-4" />} />
-          <KpiCard label="Open POs"         value={42}     change={-4.4} icon={<Truck className="h-4 w-4" />} />
-          <KpiCard label="Pending Approval" value={8}      change={12.5} icon={<FileCheck className="h-4 w-4" />} />
-          <KpiCard label="MTD Spend"        value={284100} change={6.7}  format="currency" icon={<Truck className="h-4 w-4" />} />
+          <KpiCard label="Active Suppliers" value={suppliers.length || 68} change={1.2}  icon={<Building2 className="h-4 w-4" />} />
+          <KpiCard label="Open POs"         value={openPos || 42}          change={-4.4} icon={<Truck className="h-4 w-4" />} />
+          <KpiCard label="Pending Approval" value={pending || 8}           change={12.5} icon={<FileCheck className="h-4 w-4" />} />
+          <KpiCard label="MTD Spend"        value={Math.round(mtdSpend) || 284100} change={6.7} format="currency" icon={<Truck className="h-4 w-4" />} />
         </div>
-
         <Tabs defaultValue="po">
           <TabsList>
             <TabsTrigger value="po">Purchase Orders</TabsTrigger>
@@ -82,11 +107,8 @@ export default function ProcurementPage() {
           </TabsList>
           <TabsContent value="po" className="mt-3">
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Purchase Orders</CardTitle>
-                <CardDescription>All open and recently closed POs</CardDescription>
-              </CardHeader>
-              <CardContent><DataTable columns={poCols} rows={purchaseOrders} /></CardContent>
+              <CardHeader className="pb-2"><CardTitle className="text-base">Purchase Orders</CardTitle><CardDescription>All open and recently closed POs</CardDescription></CardHeader>
+              <CardContent>{isLoading ? <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p> : <DataTable columns={poCols} rows={pos} />}</CardContent>
             </Card>
           </TabsContent>
           <TabsContent value="suppliers"    className="mt-3"><DataTable columns={supplierCols} rows={suppliers} /></TabsContent>
@@ -95,31 +117,27 @@ export default function ProcurementPage() {
         </Tabs>
       </PageShell>
 
-      {/* New PO Dialog */}
+      {/* New PO */}
       <Dialog open={poOpen} onOpenChange={setPoOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>New Purchase Order</DialogTitle></DialogHeader>
           {poSuccess ? (
-            <div className="flex flex-col items-center gap-2 py-6">
-              <CheckCircle2 className="h-10 w-10 text-success" />
-              <p className="text-sm font-medium">Purchase order created</p>
-            </div>
+            <div className="flex flex-col items-center gap-2 py-6"><CheckCircle2 className="h-10 w-10 text-success" /><p className="text-sm font-medium">Purchase order created</p></div>
           ) : (
             <form onSubmit={submitPo} className="space-y-4">
               <div className="space-y-1.5">
                 <Label>Supplier</Label>
-                <Select value={poForm.supplier} onValueChange={(v) => setPoForm((f) => ({ ...f, supplier: v }))}>
+                <Select value={poForm.supplierId} onValueChange={(v) => setPoForm((f) => ({ ...f, supplierId: v }))}>
                   <SelectTrigger><SelectValue placeholder="Select supplier…" /></SelectTrigger>
                   <SelectContent>
-                    {suppliers.map((s) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                    {suppliers.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Date</Label>
-                  <Input type="date" value={poForm.date}
-                    onChange={(e) => setPoForm((f) => ({ ...f, date: e.target.value }))} required />
+                  <Input type="date" value={poForm.orderDate} onChange={(e) => setPoForm((f) => ({ ...f, orderDate: e.target.value }))} required />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Total ($)</Label>
@@ -128,28 +146,27 @@ export default function ProcurementPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Notes (optional)</Label>
+                <Label>Notes</Label>
                 <Input placeholder="e.g. Urgent — line 3 shutdown" value={poForm.notes}
                   onChange={(e) => setPoForm((f) => ({ ...f, notes: e.target.value }))} />
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setPoOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={!poForm.supplier || !poForm.date || !poForm.total}>Create PO</Button>
+                <Button type="submit" disabled={!poForm.supplierId || !poForm.orderDate || !poForm.total || createPo.isPending}>
+                  {createPo.isPending ? "Saving…" : "Create PO"}
+                </Button>
               </DialogFooter>
             </form>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Requisition Dialog */}
+      {/* Requisition */}
       <Dialog open={reqOpen} onOpenChange={setReqOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>New Purchase Requisition</DialogTitle></DialogHeader>
           {reqSuccess ? (
-            <div className="flex flex-col items-center gap-2 py-6">
-              <CheckCircle2 className="h-10 w-10 text-success" />
-              <p className="text-sm font-medium">Requisition submitted for approval</p>
-            </div>
+            <div className="flex flex-col items-center gap-2 py-6"><CheckCircle2 className="h-10 w-10 text-success" /><p className="text-sm font-medium">Requisition submitted</p></div>
           ) : (
             <form onSubmit={submitReq} className="space-y-4">
               <div className="space-y-1.5">
@@ -168,11 +185,9 @@ export default function ProcurementPage() {
                   <Select value={reqForm.dept} onValueChange={(v) => setReqForm((f) => ({ ...f, dept: v }))}>
                     <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Manufacturing">Manufacturing</SelectItem>
-                      <SelectItem value="Logistics">Logistics</SelectItem>
-                      <SelectItem value="Engineering">Engineering</SelectItem>
-                      <SelectItem value="Finance">Finance</SelectItem>
-                      <SelectItem value="HR">HR</SelectItem>
+                      {["Manufacturing","Logistics","Engineering","Finance","HR","ICT"].map((d) => (
+                        <SelectItem key={d} value={d}>{d}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
