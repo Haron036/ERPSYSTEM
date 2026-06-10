@@ -17,8 +17,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useKpis, useCreateLedgerEntry } from "@/hooks/useApi";
-import { revenueSeries, salesByRegion, recentActivities, inventoryStatus } from "@/lib/mock-data";
+import {
+  useKpis,
+  useRevenueSeries,
+  useSalesByRegion,
+  useInventoryStatus,
+  useRecentActivities,
+  useCreateLedgerEntry,
+} from "@/hooks/useApi";
 
 const PIE_COLORS = ["var(--chart-1)","var(--chart-2)","var(--chart-3)","var(--chart-4)","var(--chart-5)"];
 
@@ -32,53 +38,96 @@ const activityIcon = (type) => {
   }
 };
 
-export default function Dashboard() {
-  // ── Live KPIs ──────────────────────────────────────────────
-  const { data: kpiData } = useKpis();
+// ── Fallback mock data (used only until backend responds) ──────────────────
+const FALLBACK_REVENUE = [
+  { month:"Jan",revenue:142000,expenses:98000,profit:44000 },
+  { month:"Feb",revenue:168000,expenses:102000,profit:66000 },
+  { month:"Mar",revenue:189000,expenses:121000,profit:68000 },
+  { month:"Apr",revenue:205000,expenses:128000,profit:77000 },
+  { month:"May",revenue:221000,expenses:134000,profit:87000 },
+  { month:"Jun",revenue:248000,expenses:142000,profit:106000 },
+  { month:"Jul",revenue:267000,expenses:155000,profit:112000 },
+  { month:"Aug",revenue:281000,expenses:162000,profit:119000 },
+  { month:"Sep",revenue:298000,expenses:171000,profit:127000 },
+  { month:"Oct",revenue:312000,expenses:178000,profit:134000 },
+  { month:"Nov",revenue:334000,expenses:189000,profit:145000 },
+  { month:"Dec",revenue:361000,expenses:201000,profit:160000 },
+];
+const FALLBACK_REGIONS = [
+  { name:"Riftvalley",value:42 },{ name:"Central",value:28 },
+  { name:"Eastern",value:18 },{ name:"Western",value:8 },{ name:"Coast",value:4 },
+];
+const FALLBACK_INVENTORY = [
+  { category:"Raw Materials",inStock:1240,lowStock:18,outOfStock:3 },
+  { category:"WIP",inStock:482,lowStock:12,outOfStock:1 },
+  { category:"Finished Goods",inStock:2105,lowStock:24,outOfStock:6 },
+  { category:"Packaging",inStock:890,lowStock:9,outOfStock:0 },
+  { category:"Spare Parts",inStock:312,lowStock:14,outOfStock:2 },
+];
+const FALLBACK_ACTIVITIES = [
+  { id:1,user:"Sarah Chen",action:"approved purchase order PO-2847",time:"2m ago",type:"approval" },
+  { id:2,user:"Marcus Wei",action:"created invoice INV-10293 for Globex Corp",time:"12m ago",type:"invoice" },
+  { id:3,user:"Priya Nair",action:"received shipment SH-4421 (1,200 units)",time:"27m ago",type:"inventory" },
+  { id:4,user:"Daniel Ortiz",action:"closed support ticket #8821",time:"48m ago",type:"crm" },
+  { id:5,user:"System",action:"auto-generated payroll for November",time:"1h ago",type:"system" },
+];
 
-  // ── New Transaction dialog ─────────────────────────────────
-  const createEntry  = useCreateLedgerEntry();
+export default function Dashboard() {
+  const { data: kpiData }        = useKpis();
+  const { data: revenueData }    = useRevenueSeries();
+  const { data: regionData }     = useSalesByRegion();
+  const { data: inventoryData }  = useInventoryStatus();
+  const { data: activitiesData } = useRecentActivities();
+  const createEntry              = useCreateLedgerEntry();
+
   const [txOpen, setTxOpen]       = useState(false);
-  const [txForm, setTxForm]       = useState({ type: "", account: "", amount: "", ref: "", note: "" });
+  const [txForm, setTxForm]       = useState({ type:"", account:"", amount:"", ref:"", note:"" });
   const [txSuccess, setTxSuccess] = useState(false);
+
+  // ── Resolve live vs fallback ───────────────────────────────────────────────
+  const revenueSeries    = revenueData    ?? FALLBACK_REVENUE;
+  const salesByRegion    = regionData     ?? FALLBACK_REGIONS;
+  const inventoryStatus  = inventoryData  ?? FALLBACK_INVENTORY;
+  const recentActivities = activitiesData ?? FALLBACK_ACTIVITIES;
+
+  const kpis = {
+    revenue:   { value: kpiData?.ytdRevenue          ?? 2_487_320, change: 12.4 },
+    orders:    { value: kpiData?.totalOrders          ?? 1_842,     change: 8.1  },
+    customers: { value: kpiData?.activeCustomers      ?? 3_209,     change: 4.7  },
+    inventory: { value: kpiData?.totalInventoryUnits  ?? 18_402,    change: -2.3 },
+    lowStock:  kpiData?.lowStockCount    ?? 77,
+    overdue:   kpiData?.overdueInvoices  ?? 12,
+    pending:   kpiData?.pendingApprovals ?? 8,
+  };
 
   async function handleTxSubmit(e) {
     e.preventDefault();
     try {
       await createEntry.mutateAsync({
-        entryDate:  new Date().toISOString().slice(0, 10),
-        account:    txForm.account,
-        debit:      txForm.type === "debit"  ? parseFloat(txForm.amount) : 0,
-        credit:     txForm.type === "credit" ? parseFloat(txForm.amount) : 0,
-        reference:  txForm.ref,
-        memo:       txForm.note,
-        entryType:  txForm.type === "debit" ? "EXPENSE" : "REVENUE",
+        entryDate: new Date().toISOString().slice(0,10),
+        account:   txForm.account,
+        debit:     txForm.type === "debit"  ? parseFloat(txForm.amount) : 0,
+        credit:    txForm.type === "credit" ? parseFloat(txForm.amount) : 0,
+        reference: txForm.ref,
+        memo:      txForm.note,
+        entryType: txForm.type === "debit" ? "EXPENSE" : "REVENUE",
       });
       setTxSuccess(true);
-      setTimeout(() => { setTxSuccess(false); setTxOpen(false); setTxForm({ type:"", account:"", amount:"", ref:"", note:"" }); }, 1500);
-    } catch (err) {
-      alert(err.message);
-    }
+      setTimeout(() => {
+        setTxSuccess(false); setTxOpen(false);
+        setTxForm({ type:"", account:"", amount:"", ref:"", note:"" });
+      }, 1500);
+    } catch (err) { alert(err.message); }
   }
 
   function handleExport() {
-    const rows = [["Month","Revenue","Expenses","Profit"], ...revenueSeries.map((r) => [r.month, r.revenue, r.expenses, r.profit])];
-    const csv  = rows.map((r) => r.join(",")).join("\n");
-    const url  = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    Object.assign(document.createElement("a"), { href: url, download: "dashboard.csv" }).click();
+    const rows = [["Month","Revenue","Expenses","Profit"],
+      ...revenueSeries.map((r) => [r.month, r.revenue, r.expenses, r.profit])];
+    const csv = rows.map((r) => r.join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type:"text/csv" }));
+    Object.assign(document.createElement("a"), { href:url, download:"dashboard.csv" }).click();
     URL.revokeObjectURL(url);
   }
-
-  // Use live data when available, fall back to mock values
-  const kpis = {
-    revenue:   { value: kpiData?.ytdRevenue    ?? 2_487_320,  change: 12.4 },
-    orders:    { value: kpiData?.totalOrders   ?? 1_842,      change: 8.1  },
-    customers: { value: kpiData?.activeCustomers ?? 3_209,    change: 4.7  },
-    inventory: { value: kpiData?.totalInventoryUnits ?? 18_402, change: -2.3 },
-    lowStock:  kpiData?.lowStockCount    ?? 77,
-    overdue:   kpiData?.overdueInvoices  ?? 12,
-    pending:   kpiData?.pendingApprovals ?? 8,
-  };
 
   return (
     <>
@@ -111,13 +160,15 @@ export default function Dashboard() {
                   <CardTitle className="text-base">Revenue vs Expenses</CardTitle>
                   <CardDescription>Monthly performance, fiscal year 2026</CardDescription>
                 </div>
-                <Badge variant="secondary">Live</Badge>
+                <Badge variant={revenueData ? "default" : "secondary"}>
+                  {revenueData ? "Live" : "Demo"}
+                </Badge>
               </div>
             </CardHeader>
             <CardContent>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={revenueSeries} margin={{ left: -10, right: 8, top: 8 }}>
+                  <AreaChart data={revenueSeries} margin={{ left:-10, right:8, top:8 }}>
                     <defs>
                       <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.45} />
@@ -129,8 +180,8 @@ export default function Dashboard() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
-                    <YAxis tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+                    <XAxis dataKey="month" tick={{ fontSize:11 }} stroke="var(--muted-foreground)" />
+                    <YAxis tick={{ fontSize:11 }} stroke="var(--muted-foreground)" tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
                     <Tooltip contentStyle={{ background:"var(--popover)", border:"1px solid var(--border)", borderRadius:6, fontSize:12 }} />
                     <Area type="monotone" dataKey="revenue"  stroke="var(--chart-1)" fill="url(#rev)" strokeWidth={2} />
                     <Area type="monotone" dataKey="expenses" stroke="var(--chart-5)" fill="url(#exp)" strokeWidth={2} />
@@ -140,7 +191,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Sales by Region */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Sales by Region</CardTitle>
@@ -225,7 +275,7 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Action Required — live counts */}
+        {/* Action Required */}
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
@@ -268,7 +318,7 @@ export default function Dashboard() {
             <form onSubmit={handleTxSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label>Entry Type</Label>
-                <Select value={txForm.type} onValueChange={(v) => setTxForm((f) => ({ ...f, type: v }))}>
+                <Select value={txForm.type} onValueChange={(v) => setTxForm((f) => ({ ...f, type:v }))}>
                   <SelectTrigger><SelectValue placeholder="Debit or Credit…" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="debit">Debit (Expense / Asset)</SelectItem>
@@ -278,7 +328,7 @@ export default function Dashboard() {
               </div>
               <div className="space-y-1.5">
                 <Label>Account</Label>
-                <Select value={txForm.account} onValueChange={(v) => setTxForm((f) => ({ ...f, account: v }))}>
+                <Select value={txForm.account} onValueChange={(v) => setTxForm((f) => ({ ...f, account:v }))}>
                   <SelectTrigger><SelectValue placeholder="Select account…" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="1000 · Cash">1000 · Cash</SelectItem>
@@ -294,18 +344,18 @@ export default function Dashboard() {
                 <div className="space-y-1.5">
                   <Label>Amount ($)</Label>
                   <Input type="number" min="0" step="0.01" placeholder="0.00"
-                    value={txForm.amount} onChange={(e) => setTxForm((f) => ({ ...f, amount: e.target.value }))} required />
+                    value={txForm.amount} onChange={(e) => setTxForm((f) => ({ ...f, amount:e.target.value }))} required />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Reference</Label>
                   <Input placeholder="e.g. INV-10299"
-                    value={txForm.ref} onChange={(e) => setTxForm((f) => ({ ...f, ref: e.target.value }))} />
+                    value={txForm.ref} onChange={(e) => setTxForm((f) => ({ ...f, ref:e.target.value }))} />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Note (optional)</Label>
                 <Input placeholder="Brief description…"
-                  value={txForm.note} onChange={(e) => setTxForm((f) => ({ ...f, note: e.target.value }))} />
+                  value={txForm.note} onChange={(e) => setTxForm((f) => ({ ...f, note:e.target.value }))} />
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setTxOpen(false)}>Cancel</Button>

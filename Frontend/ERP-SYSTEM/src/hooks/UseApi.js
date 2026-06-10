@@ -79,6 +79,40 @@ export function useKpis() {
   });
 }
 
+export function useRevenueSeries() {
+  return useQuery({
+    queryKey: ["dashboard", "revenue-series"],
+    queryFn:  dashboardApi.getRevenueSeries,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+export function useSalesByRegion() {
+  return useQuery({
+    queryKey: ["dashboard", "sales-by-region"],
+    queryFn:  dashboardApi.getSalesByRegion,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useInventoryStatus() {
+  return useQuery({
+    queryKey: ["dashboard", "inventory-status"],
+    queryFn:  dashboardApi.getInventoryStatus,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+
+export function useRecentActivities() {
+  return useQuery({
+    queryKey: ["dashboard", "recent-activities"],
+    queryFn:  dashboardApi.getRecentActivities,
+    staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
+  });
+}
+
+
 // =============================================================================
 //  EMPLOYEES
 // =============================================================================
@@ -630,3 +664,31 @@ export function useDeleteTicket(options) {
     options,
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

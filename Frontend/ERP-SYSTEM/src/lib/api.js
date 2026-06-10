@@ -79,8 +79,14 @@ export const authApi = {
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export const dashboardApi = {
-  getKpis: () => apiFetch("/dashboard/kpis"),
+  getKpis:           () => apiFetch("/dashboard/kpis"),
+  getRevenueSeries:  () => apiFetch("/dashboard/revenue-series"),
+  getSalesByRegion:  () => apiFetch("/dashboard/sales-by-region"),
+  getInventoryStatus:() => apiFetch("/dashboard/inventory-status"),
+  getRecentActivities:()=> apiFetch("/dashboard/recent-activities"),
+
 };
+
 
 // ── Employees ─────────────────────────────────────────────────────────────────
 export const employeesApi = {
