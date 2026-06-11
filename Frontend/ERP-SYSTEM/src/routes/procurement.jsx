@@ -93,10 +93,10 @@ export default function ProcurementPage() {
         }
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Active Suppliers" value={suppliers.length || 68} change={1.2}  icon={<Building2 className="h-4 w-4" />} />
-          <KpiCard label="Open POs"         value={openPos || 42}          change={-4.4} icon={<Truck className="h-4 w-4" />} />
-          <KpiCard label="Pending Approval" value={pending || 8}           change={12.5} icon={<FileCheck className="h-4 w-4" />} />
-          <KpiCard label="MTD Spend"        value={Math.round(mtdSpend) || 284100} change={6.7} format="currency" icon={<Truck className="h-4 w-4" />} />
+<KpiCard label="Active Suppliers" value={suppliers.length}/>
+<KpiCard label="Open POs"         value={openPos}/>
+<KpiCard label="Pending Approval" value={pending} />
+<KpiCard label="MTD Spend"        value={Math.round(mtdSpend)}   />
         </div>
         <Tabs defaultValue="po">
           <TabsList>

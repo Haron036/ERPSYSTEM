@@ -3,8 +3,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useSalesOrders, useEmployees, useProducts, useLedger, useLeads } from "@/hooks/useApi";
-import { revenueSeries, salesByRegion, departmentHeadcount } from "@/lib/mock-data";
+import { useSalesOrders, useEmployees, useProducts, useLedger, useLeads, useRevenueSeries, useSalesByRegion } from "@/hooks/useApi";
 
 function downloadCSV(filename, rows) {
   if (!rows.length) { alert("No data available for this report yet."); return; }
@@ -25,16 +24,51 @@ export default function ReportsPage() {
   const { data: products  = [] } = useProducts();
   const { data: ledger    = [] } = useLedger();
   const { data: leads     = [] } = useLeads();
+  const { data: revenueData }    = useRevenueSeries();  
+const { data: regionData }     = useSalesByRegion();  
 
   // Build headcount from live employees or fall back to mock
-  const headcountData = employees.length
-    ? Object.entries(
-        employees.reduce((acc, e) => {
-          acc[e.department] = (acc[e.department] || 0) + 1;
-          return acc;
-        }, {})
-      ).map(([dept, count]) => ({ dept, count }))
-    : departmentHeadcount;
+const FALLBACK_REVENUE = [
+  { month:"Jan", revenue:142000, expenses:98000,  profit:44000  },
+  { month:"Feb", revenue:168000, expenses:102000, profit:66000  },
+  { month:"Mar", revenue:189000, expenses:121000, profit:68000  },
+  { month:"Apr", revenue:205000, expenses:128000, profit:77000  },
+  { month:"May", revenue:221000, expenses:134000, profit:87000  },
+  { month:"Jun", revenue:248000, expenses:142000, profit:106000 },
+  { month:"Jul", revenue:267000, expenses:155000, profit:112000 },
+  { month:"Aug", revenue:281000, expenses:162000, profit:119000 },
+  { month:"Sep", revenue:298000, expenses:171000, profit:127000 },
+  { month:"Oct", revenue:312000, expenses:178000, profit:134000 },
+  { month:"Nov", revenue:334000, expenses:189000, profit:145000 },
+  { month:"Dec", revenue:361000, expenses:201000, profit:160000 },
+];
+const FALLBACK_REGIONS = [
+  { name:"Riftvalley", value:42 },
+  { name:"Central",    value:28 },
+  { name:"Eastern",    value:18 },
+  { name:"Western",    value:8  },
+  { name:"Coast",      value:4  },
+];
+const FALLBACK_HEADCOUNT = [
+  { dept:"Manufacturing", count:142 },
+  { dept:"Logistics",     count:58  },
+  { dept:"Sales",         count:34  },
+  { dept:"Finance",       count:18  },
+  { dept:"HR",            count:9   },
+  { dept:"Engineering",   count:41  },
+  { dept:"ICT",           count:5   },
+];
+
+const revenueSeries  = revenueData ?? FALLBACK_REVENUE;
+const salesByRegion  = regionData  ?? FALLBACK_REGIONS;
+const headcountData  = employees.length
+  ? Object.entries(
+      employees.reduce((acc, e) => {
+        acc[e.department] = (acc[e.department] || 0) + 1;
+        return acc;
+      }, {})
+    ).map(([dept, count]) => ({ dept, count }))
+  : FALLBACK_HEADCOUNT;
 
   const reports = [
     {
@@ -116,6 +150,7 @@ export default function ReportsPage() {
       }))),
     },
   ];
+  
 
   function handleExportAll() {
     downloadCSV("revenue-report.csv", revenueSeries);

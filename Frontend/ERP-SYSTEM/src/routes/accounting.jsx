@@ -11,12 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useLedger, useCreateLedgerEntry, useKpis } from "@/hooks/useApi";
-import { revenueSeries } from "@/lib/mock-data";
+import { useLedger, useCreateLedgerEntry, useKpis, useRevenueSeries } from "@/hooks/useApi";
+
+
 
 export default function AccountingPage() {
   const { data: entries = [], isLoading } = useLedger();
   const { data: kpiData }                = useKpis();
+  const { data: revenueData }            = useRevenueSeries(); 
   const createEntry = useCreateLedgerEntry();
 
   const [journalOpen,   setJournalOpen]   = useState(false);
@@ -54,9 +56,19 @@ export default function AccountingPage() {
   }
 
   // Derive KPIs from live data or fall back to static values
-  const ytdRevenue  = kpiData?.ytdRevenue  ?? 2_487_320;
+  const ytdRevenue = kpiData?.ytdRevenue ?? 0;
   const netProfit   = Number(ytdRevenue) * 0.324;  // ~32% margin approximation
   const expenses    = Number(ytdRevenue) - netProfit;
+  const FALLBACK_REVENUE = [
+  { month:"Jan", profit:44000 }, { month:"Feb", profit:66000 },
+  { month:"Mar", profit:68000 }, { month:"Apr", profit:77000 },
+  { month:"May", profit:87000 }, { month:"Jun", profit:106000 },
+  { month:"Jul", profit:112000 }, { month:"Aug", profit:119000 },
+  { month:"Sep", profit:127000 }, { month:"Oct", profit:134000 },
+  { month:"Nov", profit:145000 }, { month:"Dec", profit:160000 },
+];
+const revenueSeries = revenueData ?? FALLBACK_REVENUE;
+
 
   const cols = [
     { key:"entryDate", header:"Date" },

@@ -168,10 +168,16 @@ export const leadsApi = {
   update:  (id, body)   => apiFetch(`/leads/${id}`,   { method: "PUT",  body: JSON.stringify(body) }),
   delete:  (id)         => apiFetch(`/leads/${id}`,   { method: "DELETE" }),
 };
+//---Notifications---
+export const notificationsApi = {
+  getAll: () => apiFetch("/notifications"),
+};
+
 
 // ── Support Tickets ───────────────────────────────────────────────────────────
 export const ticketsApi = {
   getAll:  ()                   => apiFetch("/tickets"),
+  getById:      (id)              => apiFetch(`/tickets/${id}`),           
   create:  (body)               => apiFetch("/tickets", { method: "POST", body: JSON.stringify(body) }),
   updateStatus: (id, status)    => apiFetch(`/tickets/${id}/status?status=${status}`, { method: "PATCH" }),
   delete:  (id)                 => apiFetch(`/tickets/${id}`, { method: "DELETE" }),

@@ -11,6 +11,7 @@ import {
   projectsApi,
   leadsApi,
   ticketsApi,
+  notificationsApi,
 } from "@/lib/api";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -111,6 +112,7 @@ export function useRecentActivities() {
     refetchInterval: 30 * 1000,
   });
 }
+
 
 
 // =============================================================================
@@ -664,6 +666,16 @@ export function useDeleteTicket(options) {
     options,
   );
 }
+
+export function useNotifications() {
+  return useQuery({
+    queryKey: ["notifications"],
+    queryFn:  notificationsApi.getAll,
+    staleTime: 30_000,
+    refetchInterval: 60_000,  // poll every minute
+  });
+}
+
 
 
 
