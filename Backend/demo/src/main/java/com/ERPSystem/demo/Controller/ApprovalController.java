@@ -1,7 +1,6 @@
 package com.ERPSystem.demo.Controller;
 
 import com.ERPSystem.demo.DTOs.ApprovalDto;
-import com.ERPSystem.demo.Entities.PurchaseOrder;
 import com.ERPSystem.demo.Services.ApprovalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -58,9 +57,5 @@ public class ApprovalController {
         List<ApprovalDto.LogItem> logs = service.getLog(entityType, entityId);
         return ResponseEntity.ok(logs != null ? logs : List.of());
     }
-    @GetMapping("/debug")
-    public ResponseEntity<String> debug() {
-        long count = poRepo.findByStatus(PurchaseOrder.PoStatus.PENDING_APPROVAL).size();
-        return ResponseEntity.ok("POs pending: " + count);
-    }
+    
 }
