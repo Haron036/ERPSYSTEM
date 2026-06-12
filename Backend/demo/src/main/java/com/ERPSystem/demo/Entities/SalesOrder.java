@@ -46,6 +46,6 @@ public class SalesOrder {
     @PrePersist  void onCreate() { createdAt = updatedAt = LocalDateTime.now(); }
     @PreUpdate   void onUpdate() { updatedAt = LocalDateTime.now(); }
 
-    public enum OrderStatus  { QUOTED, PROCESSING, PICKING, FULFILLED, CANCELLED }
+    public enum OrderStatus { PENDING_APPROVAL, QUOTED, PROCESSING, PICKING, FULFILLED, CANCELLED }
     public enum PaymentStatus { PENDING, PARTIAL, PAID }
 }

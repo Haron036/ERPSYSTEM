@@ -3,8 +3,10 @@ package com.ERPSystem.demo.Services;
 import com.ERPSystem.demo.DTOs.LedgerEntryDto;
 import com.ERPSystem.demo.Entities.LedgerEntry;
 import com.ERPSystem.demo.Exceptions.ResourceNotFoundException;
+import com.ERPSystem.demo.Repositories.AppUserRepository;
 import com.ERPSystem.demo.Repositories.LedgerEntryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -14,6 +16,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LedgerEntryService {
     private final LedgerEntryRepository repo;
+    private final AppUserRepository userRepo;
+
 
     public List<LedgerEntryDto.Response> findAll() {
         return repo.findAll().stream().map(this::map).toList();
@@ -23,15 +27,23 @@ public class LedgerEntryService {
         LedgerEntry e = LedgerEntry.builder()
                 .entryDate(req.getEntryDate())
                 .account(req.getAccount())
-                .debit(req.getDebit()  != null ? req.getDebit()  : BigDecimal.ZERO)
-                .credit(req.getCredit()!= null ? req.getCredit() : BigDecimal.ZERO)
+                .debit(req.getDebit()   != null ? req.getDebit()   : BigDecimal.ZERO)
+                .credit(req.getCredit() != null ? req.getCredit()  : BigDecimal.ZERO)
                 .reference(req.getReference())
                 .memo(req.getMemo())
                 .entryType(req.getEntryType())
                 .build();
+
+        // ── capture submitter for approval email ──────────────────────────────
+        String email = SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+        userRepo.findByEmail(email).ifPresent(u -> {
+            e.setSubmittedByEmail(u.getEmail());   // was wrongly "entry" — fixed to "e"
+            e.setSubmittedByName(u.getFullName()); // same fix
+        });
+
         return map(repo.save(e));
     }
-
     public void delete(Long id) {
         if (!repo.existsById(id)) throw new ResourceNotFoundException("Ledger entry not found: " + id);
         repo.deleteById(id);

@@ -165,11 +165,12 @@ public class DashboardService {
         //                                  total, createdAt
         for (SalesOrder so : salesRepo.findTop5ByOrderByCreatedAtDesc()) {
             String verb = switch (so.getStatus()) {
-                case PROCESSING -> "created order";
-                case PICKING    -> "picking started for";
-                case FULFILLED  -> "fulfilled order";
-                case QUOTED     -> "quoted order";
-                case CANCELLED  -> "cancelled order";
+                case PENDING_APPROVAL -> "submitted order";   // ← add this
+                case PROCESSING       -> "created order";
+                case PICKING          -> "picking started for";
+                case FULFILLED        -> "fulfilled order";
+                case QUOTED           -> "quoted order";
+                case CANCELLED        -> "cancelled order";
             };
             String customer = so.getCustomer() != null ? so.getCustomer().getName() : "Unknown";
             stamped.add(new Stamped(

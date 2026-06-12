@@ -12,6 +12,7 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, Long> 
 
     List<LedgerEntry> findByReference(String reference);
     List<LedgerEntry> findByEntryType(LedgerEntry.EntryType type);
+    List<LedgerEntry> findByApprovalStatus(LedgerEntry.ApprovalStatus status);
 
     @Query("SELECT COALESCE(SUM(e.debit),0) - COALESCE(SUM(e.credit),0) " +
             "FROM LedgerEntry e WHERE e.account = :account")

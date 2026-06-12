@@ -14,7 +14,7 @@ import EmployeesPage   from "./routes/employees";
 import CrmPage         from "./routes/crm";
 import ProjectsPage    from "./routes/projects";
 import ReportsPage     from "./routes/reports";
-
+import ApprovalsPage   from "./routes/approvals"; 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -43,7 +43,7 @@ const loginRoute = createRoute({
 
 const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/register", // 👈 Declared register path as a public endpoint
+  path: "/register", 
   component: RegisterPage,
 });
 
@@ -111,6 +111,13 @@ const reportsRoute = createRoute({
   component: ReportsPage,
 });
 
+const approvalsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/approvals",
+  beforeLoad: requireAuth, 
+  component: ApprovalsPage,
+});
+
 // ── Route tree ────────────────────────────────────────────────────────────────
 const routeTree = rootRoute.addChildren([
   loginRoute,
@@ -124,6 +131,7 @@ const routeTree = rootRoute.addChildren([
   crmRoute,
   projectsRoute,
   reportsRoute,
+  approvalsRoute,
 ]);
 
 export function getRouter() {

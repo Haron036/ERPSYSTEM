@@ -28,6 +28,7 @@ public class Supplier {
 
     private String contactPerson;
     private String country;
+    private String email;
 
     @Column(precision = 3, scale = 1)
     private BigDecimal rating;

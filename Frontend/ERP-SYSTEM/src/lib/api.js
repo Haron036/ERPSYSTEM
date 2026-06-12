@@ -182,3 +182,11 @@ export const ticketsApi = {
   updateStatus: (id, status)    => apiFetch(`/tickets/${id}/status?status=${status}`, { method: "PATCH" }),
   delete:  (id)                 => apiFetch(`/tickets/${id}`, { method: "DELETE" }),
 };
+
+export const api = {
+  get: (path, options) => apiFetch(path, { ...options, method: "GET" }),
+  post: (path, body, options) => apiFetch(path, { ...options, method: "POST", body: JSON.stringify(body) }),
+  put: (path, body, options) => apiFetch(path, { ...options, method: "PUT", body: JSON.stringify(body) }),
+  patch: (path, body, options) => apiFetch(path, { ...options, method: "PATCH", body: JSON.stringify(body) }),
+  delete: (path, options) => apiFetch(path, { ...options, method: "DELETE" }),
+};
