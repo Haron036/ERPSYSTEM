@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query"; // 👈 Added missing Hook import
-import { api } from "@/lib/api"; // 👈 Added missing api import
+import { useApprovalsPending } from "@/hooks/useApi";
+import { api } from "@/lib/api"; // 
 
 import {
   LayoutDashboard,
@@ -18,7 +18,7 @@ import {
   Bell,
   Palette,
   User,
-  ClipboardCheck, // 👈 Added this missing icon import
+  ClipboardCheck, 
 } from "lucide-react";
 import {
   Sidebar,
@@ -100,12 +100,10 @@ export function AppSidebar() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [theme, setTheme] = useState(getTheme);
 
-  // 🛠️ Moved inside the component context so React can handle the state & data lifecycle correctly
-  const { data: pending = [] } = useQuery({
-    queryKey: ["approvals-pending"],
-    queryFn: () => api.get("/approvals/pending").then(r => r.data),
-    refetchInterval: 30_000,
-  });
+  
+  
+  const { data: pending = [] } = useApprovalsPending();
+
   const pendingCount = pending.length;
 
   // Profile — pre-fill from stored user if available

@@ -44,17 +44,38 @@ async function apiFetch(path, options = {}) {
     return;
   }
 
-  // 204 No Content
+  // No content responses — 204 or empty body on 200
   if (res.status === 204) return null;
 
-  const data = await res.json();
+  // Check content-length and content-type before attempting JSON parse
+  const contentType = res.headers.get("content-type") ?? "";
+  const contentLength = res.headers.get("content-length");
+
+  // Return null for empty bodies (length 0 or no JSON content type)
+  const hasBody = contentLength !== "0" && contentType.includes("application/json");
+
+  if (!hasBody) {
+    // Still need to check for errors on non-JSON responses
+    if (!res.ok) {
+      throw new Error(`Request failed with status ${res.status}`);
+    }
+    return null;
+  }
+
+  // Safe JSON parse — guard against truly empty bodies
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
+    return null;
+  }
 
   if (!res.ok) {
-    // Server returns { status, error, message } shape from GlobalExceptionHandler
     const msg =
-      typeof data.message === "string"
+      typeof data?.message === "string"
         ? data.message
-        : JSON.stringify(data.message ?? data.error ?? "Request failed");
+        : JSON.stringify(data?.message ?? data?.error ?? "Request failed");
     throw new Error(msg);
   }
 
@@ -69,7 +90,6 @@ export const authApi = {
       body: JSON.stringify({ email, password }),
     }),
 
-  // 🛠️ Modified to safely extract properties from a form payload object
   register: ({ fullName, email, password, role = "VIEWER" }) =>
     apiFetch("/auth/register", {
       method: "POST",
@@ -79,21 +99,19 @@ export const authApi = {
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export const dashboardApi = {
-  getKpis:           () => apiFetch("/dashboard/kpis"),
-  getRevenueSeries:  () => apiFetch("/dashboard/revenue-series"),
-  getSalesByRegion:  () => apiFetch("/dashboard/sales-by-region"),
-  getInventoryStatus:() => apiFetch("/dashboard/inventory-status"),
-  getRecentActivities:()=> apiFetch("/dashboard/recent-activities"),
-
+  getKpis:            () => apiFetch("/dashboard/kpis"),
+  getRevenueSeries:   () => apiFetch("/dashboard/revenue-series"),
+  getSalesByRegion:   () => apiFetch("/dashboard/sales-by-region"),
+  getInventoryStatus: () => apiFetch("/dashboard/inventory-status"),
+  getRecentActivities:() => apiFetch("/dashboard/recent-activities"),
 };
-
 
 // ── Employees ─────────────────────────────────────────────────────────────────
 export const employeesApi = {
   getAll:  ()           => apiFetch("/employees"),
   getById: (id)         => apiFetch(`/employees/${id}`),
-  create:  (body)       => apiFetch("/employees",     { method: "POST", body: JSON.stringify(body) }),
-  update:  (id, body)   => apiFetch(`/employees/${id}`, { method: "PUT",  body: JSON.stringify(body) }),
+  create:  (body)       => apiFetch("/employees",       { method: "POST",   body: JSON.stringify(body) }),
+  update:  (id, body)   => apiFetch(`/employees/${id}`, { method: "PUT",    body: JSON.stringify(body) }),
   delete:  (id)         => apiFetch(`/employees/${id}`, { method: "DELETE" }),
 };
 
@@ -101,8 +119,8 @@ export const employeesApi = {
 export const customersApi = {
   getAll:  ()           => apiFetch("/customers"),
   getById: (id)         => apiFetch(`/customers/${id}`),
-  create:  (body)       => apiFetch("/customers",     { method: "POST", body: JSON.stringify(body) }),
-  update:  (id, body)   => apiFetch(`/customers/${id}`, { method: "PUT",  body: JSON.stringify(body) }),
+  create:  (body)       => apiFetch("/customers",       { method: "POST",   body: JSON.stringify(body) }),
+  update:  (id, body)   => apiFetch(`/customers/${id}`, { method: "PUT",    body: JSON.stringify(body) }),
   delete:  (id)         => apiFetch(`/customers/${id}`, { method: "DELETE" }),
 };
 
@@ -110,44 +128,44 @@ export const customersApi = {
 export const suppliersApi = {
   getAll:  ()           => apiFetch("/suppliers"),
   getById: (id)         => apiFetch(`/suppliers/${id}`),
-  create:  (body)       => apiFetch("/suppliers",     { method: "POST", body: JSON.stringify(body) }),
-  update:  (id, body)   => apiFetch(`/suppliers/${id}`, { method: "PUT",  body: JSON.stringify(body) }),
+  create:  (body)       => apiFetch("/suppliers",       { method: "POST",   body: JSON.stringify(body) }),
+  update:  (id, body)   => apiFetch(`/suppliers/${id}`, { method: "PUT",    body: JSON.stringify(body) }),
   delete:  (id)         => apiFetch(`/suppliers/${id}`, { method: "DELETE" }),
 };
 
 // ── Products / Inventory ──────────────────────────────────────────────────────
 export const productsApi = {
-  getAll:     ()        => apiFetch("/products"),
-  getById:    (id)      => apiFetch(`/products/${id}`),
-  getBySku:   (sku)     => apiFetch(`/products/sku/${sku}`),
-  getLowStock: ()       => apiFetch("/products/low-stock"),
-  create:  (body)       => apiFetch("/products",      { method: "POST", body: JSON.stringify(body) }),
-  update:  (id, body)   => apiFetch(`/products/${id}`, { method: "PUT",  body: JSON.stringify(body) }),
-  delete:  (id)         => apiFetch(`/products/${id}`, { method: "DELETE" }),
+  getAll:      ()        => apiFetch("/products"),
+  getById:     (id)      => apiFetch(`/products/${id}`),
+  getBySku:    (sku)     => apiFetch(`/products/sku/${sku}`),
+  getLowStock: ()        => apiFetch("/products/low-stock"),
+  create:  (body)        => apiFetch("/products",       { method: "POST",   body: JSON.stringify(body) }),
+  update:  (id, body)    => apiFetch(`/products/${id}`, { method: "PUT",    body: JSON.stringify(body) }),
+  delete:  (id)          => apiFetch(`/products/${id}`, { method: "DELETE" }),
 };
 
 // ── Sales Orders ──────────────────────────────────────────────────────────────
 export const salesOrdersApi = {
-  getAll:  ()                   => apiFetch("/sales-orders"),
-  getById: (id)                 => apiFetch(`/sales-orders/${id}`),
-  create:  (body)               => apiFetch("/sales-orders", { method: "POST", body: JSON.stringify(body) }),
-  updateStatus: (id, status)    => apiFetch(`/sales-orders/${id}/status?status=${status}`, { method: "PATCH" }),
-  delete:  (id)                 => apiFetch(`/sales-orders/${id}`, { method: "DELETE" }),
+  getAll:       ()                => apiFetch("/sales-orders"),
+  getById:      (id)              => apiFetch(`/sales-orders/${id}`),
+  create:       (body)            => apiFetch("/sales-orders",              { method: "POST",  body: JSON.stringify(body) }),
+  updateStatus: (id, status)      => apiFetch(`/sales-orders/${id}/status?status=${status}`, { method: "PATCH" }),
+  delete:       (id)              => apiFetch(`/sales-orders/${id}`,        { method: "DELETE" }),
 };
 
 // ── Purchase Orders ───────────────────────────────────────────────────────────
 export const purchaseOrdersApi = {
-  getAll:  ()                   => apiFetch("/purchase-orders"),
-  getById: (id)                 => apiFetch(`/purchase-orders/${id}`),
-  create:  (body)               => apiFetch("/purchase-orders", { method: "POST", body: JSON.stringify(body) }),
-  updateStatus: (id, status)    => apiFetch(`/purchase-orders/${id}/status?status=${status}`, { method: "PATCH" }),
-  delete:  (id)                 => apiFetch(`/purchase-orders/${id}`, { method: "DELETE" }),
+  getAll:       ()                => apiFetch("/purchase-orders"),
+  getById:      (id)              => apiFetch(`/purchase-orders/${id}`),
+  create:       (body)            => apiFetch("/purchase-orders",           { method: "POST",  body: JSON.stringify(body) }),
+  updateStatus: (id, status)      => apiFetch(`/purchase-orders/${id}/status?status=${status}`, { method: "PATCH" }),
+  delete:       (id)              => apiFetch(`/purchase-orders/${id}`,     { method: "DELETE" }),
 };
 
 // ── Ledger / Accounting ───────────────────────────────────────────────────────
 export const ledgerApi = {
   getAll:  ()     => apiFetch("/ledger"),
-  create:  (body) => apiFetch("/ledger", { method: "POST", body: JSON.stringify(body) }),
+  create:  (body) => apiFetch("/ledger",      { method: "POST",   body: JSON.stringify(body) }),
   delete:  (id)   => apiFetch(`/ledger/${id}`, { method: "DELETE" }),
 };
 
@@ -155,8 +173,8 @@ export const ledgerApi = {
 export const projectsApi = {
   getAll:  ()           => apiFetch("/projects"),
   getById: (id)         => apiFetch(`/projects/${id}`),
-  create:  (body)       => apiFetch("/projects",      { method: "POST", body: JSON.stringify(body) }),
-  update:  (id, body)   => apiFetch(`/projects/${id}`, { method: "PUT",  body: JSON.stringify(body) }),
+  create:  (body)       => apiFetch("/projects",       { method: "POST",   body: JSON.stringify(body) }),
+  update:  (id, body)   => apiFetch(`/projects/${id}`, { method: "PUT",    body: JSON.stringify(body) }),
   delete:  (id)         => apiFetch(`/projects/${id}`, { method: "DELETE" }),
 };
 
@@ -164,29 +182,30 @@ export const projectsApi = {
 export const leadsApi = {
   getAll:  ()           => apiFetch("/leads"),
   getById: (id)         => apiFetch(`/leads/${id}`),
-  create:  (body)       => apiFetch("/leads",         { method: "POST", body: JSON.stringify(body) }),
-  update:  (id, body)   => apiFetch(`/leads/${id}`,   { method: "PUT",  body: JSON.stringify(body) }),
+  create:  (body)       => apiFetch("/leads",         { method: "POST",   body: JSON.stringify(body) }),
+  update:  (id, body)   => apiFetch(`/leads/${id}`,   { method: "PUT",    body: JSON.stringify(body) }),
   delete:  (id)         => apiFetch(`/leads/${id}`,   { method: "DELETE" }),
 };
-//---Notifications---
+
+// ── Support Tickets ───────────────────────────────────────────────────────────
+export const ticketsApi = {
+  getAll:       ()              => apiFetch("/tickets"),
+  getById:      (id)            => apiFetch(`/tickets/${id}`),
+  create:       (body)          => apiFetch("/tickets",             { method: "POST",  body: JSON.stringify(body) }),
+  updateStatus: (id, status)    => apiFetch(`/tickets/${id}/status?status=${status}`, { method: "PATCH" }),
+  delete:       (id)            => apiFetch(`/tickets/${id}`,       { method: "DELETE" }),
+};
+
+// ── Notifications ─────────────────────────────────────────────────────────────
 export const notificationsApi = {
   getAll: () => apiFetch("/notifications"),
 };
 
-
-// ── Support Tickets ───────────────────────────────────────────────────────────
-export const ticketsApi = {
-  getAll:  ()                   => apiFetch("/tickets"),
-  getById:      (id)              => apiFetch(`/tickets/${id}`),           
-  create:  (body)               => apiFetch("/tickets", { method: "POST", body: JSON.stringify(body) }),
-  updateStatus: (id, status)    => apiFetch(`/tickets/${id}/status?status=${status}`, { method: "PATCH" }),
-  delete:  (id)                 => apiFetch(`/tickets/${id}`, { method: "DELETE" }),
-};
-
+// ── Generic api object (used by approvals and other direct callers) ───────────
 export const api = {
-  get: (path, options) => apiFetch(path, { ...options, method: "GET" }),
-  post: (path, body, options) => apiFetch(path, { ...options, method: "POST", body: JSON.stringify(body) }),
-  put: (path, body, options) => apiFetch(path, { ...options, method: "PUT", body: JSON.stringify(body) }),
-  patch: (path, body, options) => apiFetch(path, { ...options, method: "PATCH", body: JSON.stringify(body) }),
-  delete: (path, options) => apiFetch(path, { ...options, method: "DELETE" }),
+  get:    (path, options)        => apiFetch(path, { ...options, method: "GET" }),
+  post:   (path, body, options)  => apiFetch(path, { ...options, method: "POST",   body: JSON.stringify(body) }),
+  put:    (path, body, options)  => apiFetch(path, { ...options, method: "PUT",    body: JSON.stringify(body) }),
+  patch:  (path, body, options)  => apiFetch(path, { ...options, method: "PATCH",  body: JSON.stringify(body) }),
+  delete: (path, options)        => apiFetch(path, { ...options, method: "DELETE" }),
 };

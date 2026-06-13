@@ -6,6 +6,7 @@ import com.ERPSystem.demo.Entities.Supplier;
 import com.ERPSystem.demo.Exceptions.ResourceNotFoundException;
 import com.ERPSystem.demo.Repositories.PurchaseOrderRepository;
 import com.ERPSystem.demo.Repositories.SupplierRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -17,8 +18,27 @@ import java.util.concurrent.atomic.AtomicLong;
 public class PurchaseOrderService {
 
     private final PurchaseOrderRepository poRepo;
-    private final SupplierRepository supplierRepo;
-    private final AtomicLong codeSeq = new AtomicLong(2850);
+    private final SupplierRepository      supplierRepo;
+
+    // Seeded from DB on startup — never resets to a hardcoded value
+    private final AtomicLong codeSeq = new AtomicLong(0);
+
+    @PostConstruct
+    void initSeq() {
+        // Find the highest existing PO number and start from there
+        poRepo.findAll().stream()
+                .map(PurchaseOrder::getPoNumber)
+                .filter(n -> n != null && n.startsWith("PO-"))
+                .mapToLong(n -> {
+                    try { return Long.parseLong(n.substring(3)); }
+                    catch (NumberFormatException e) { return 0L; }
+                })
+                .max()
+                .ifPresentOrElse(
+                        codeSeq::set,
+                        () -> codeSeq.set(2850)   // fallback if table is empty
+                );
+    }
 
     public List<PurchaseOrderDto.Response> findAll() {
         return poRepo.findAll().stream().map(this::toResponse).toList();
@@ -31,7 +51,8 @@ public class PurchaseOrderService {
 
     public PurchaseOrderDto.Response create(PurchaseOrderDto.Request req) {
         Supplier supplier = supplierRepo.findById(req.getSupplierId())
-                .orElseThrow(() -> new ResourceNotFoundException("Supplier not found: " + req.getSupplierId()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Supplier not found: " + req.getSupplierId()));
 
         String num = "PO-" + codeSeq.incrementAndGet();
         PurchaseOrder po = PurchaseOrder.builder()
@@ -53,7 +74,8 @@ public class PurchaseOrderService {
     }
 
     public void delete(Long id) {
-        if (!poRepo.existsById(id)) throw new ResourceNotFoundException("PO not found: " + id);
+        if (!poRepo.existsById(id))
+            throw new ResourceNotFoundException("PO not found: " + id);
         poRepo.deleteById(id);
     }
 

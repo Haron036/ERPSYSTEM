@@ -1,6 +1,6 @@
 import { Bell, Search, Moon, Sun, ChevronDown, LogOut } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
@@ -22,8 +22,7 @@ export function AppHeader({ title, breadcrumb }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { data: notifications = [] } = useNotifications();
-  
-  // 1. Initialize state from localStorage or DOM class inspection
+
   const [theme, setTheme] = useState(() => {
     if (typeof window !== "undefined") {
       return document.documentElement.classList.contains("dark") ? "dark" : "light";
@@ -31,14 +30,11 @@ export function AppHeader({ title, breadcrumb }) {
     return "light";
   });
 
-  // 2. Synchronize DOM changes when state updates
   function toggleTheme() {
     const nextTheme = theme === "dark" ? "light" : "dark";
-    
     document.documentElement.classList.toggle("dark", nextTheme === "dark");
     localStorage.setItem("erp_theme", nextTheme);
-    
-    setTheme(nextTheme); // This updates React state and triggers a re-render
+    setTheme(nextTheme);
   }
 
   function handleLogout() {
@@ -83,7 +79,6 @@ export function AppHeader({ title, breadcrumb }) {
           onClick={toggleTheme}
           aria-label="Toggle theme"
         >
-          {/* 3. Render conditionally using the monitored React state */}
           {theme === "dark" ? (
             <Sun className="h-4 w-4" />
           ) : (
@@ -105,27 +100,33 @@ export function AppHeader({ title, breadcrumb }) {
               <Badge variant="secondary">{notifications.length}</Badge>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {notifications.map((n) => (
-              <DropdownMenuItem
-                key={n.id}
-                className="flex-col items-start gap-0.5 py-2"
-              >
-                <div className="flex w-full items-center justify-between">
-                  <span className="text-sm font-medium">{n.title}</span>
-                  <span
-                    className={
-                      "h-1.5 w-1.5 rounded-full " +
-                      (n.severity === "destructive"
-                        ? "bg-destructive"
-                        : n.severity === "warning"
-                          ? "bg-warning"
-                          : "bg-info")
-                    }
-                  />
-                </div>
-                <span className="text-xs text-muted-foreground">{n.body}</span>
+            {notifications.length === 0 ? (
+              <DropdownMenuItem disabled className="text-sm text-muted-foreground">
+                No notifications
               </DropdownMenuItem>
-            ))}
+            ) : (
+              notifications.map((n, idx) => (
+                <DropdownMenuItem
+                  key={n.id != null ? n.id : `notif-${idx}`}
+                  className="flex-col items-start gap-0.5 py-2"
+                >
+                  <div className="flex w-full items-center justify-between">
+                    <span className="text-sm font-medium">{n.title}</span>
+                    <span
+                      className={
+                        "h-1.5 w-1.5 rounded-full " +
+                        (n.severity === "destructive"
+                          ? "bg-destructive"
+                          : n.severity === "warning"
+                            ? "bg-warning"
+                            : "bg-info")
+                      }
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground">{n.body}</span>
+                </DropdownMenuItem>
+              ))
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 

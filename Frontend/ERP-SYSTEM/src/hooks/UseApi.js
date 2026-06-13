@@ -12,40 +12,40 @@ import {
   leadsApi,
   ticketsApi,
   notificationsApi,
+  api,
 } from "@/lib/api";
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  QUERY KEYS
-//  Centralised so invalidation is consistent across all hooks
 // ─────────────────────────────────────────────────────────────────────────────
 export const QK = {
-  kpis:           ["kpis"],
-  employees:      ["employees"],
-  employee:       (id) => ["employees", id],
-  customers:      ["customers"],
-  customer:       (id) => ["customers", id],
-  suppliers:      ["suppliers"],
-  supplier:       (id) => ["suppliers", id],
-  products:       ["products"],
-  product:        (id) => ["products", id],
-  productBySku:   (sku) => ["products", "sku", sku],
-  lowStock:       ["products", "low-stock"],
-  salesOrders:    ["sales-orders"],
-  salesOrder:     (id) => ["sales-orders", id],
-  purchaseOrders: ["purchase-orders"],
-  purchaseOrder:  (id) => ["purchase-orders", id],
-  ledger:         ["ledger"],
-  projects:       ["projects"],
-  project:        (id) => ["projects", id],
-  leads:          ["leads"],
-  lead:           (id) => ["leads", id],
-  tickets:        ["tickets"],
-  ticket:         (id) => ["tickets", id],
+  kpis:             ["kpis"],
+  employees:        ["employees"],
+  employee:         (id) => ["employees", id],
+  customers:        ["customers"],
+  customer:         (id) => ["customers", id],
+  suppliers:        ["suppliers"],
+  supplier:         (id) => ["suppliers", id],
+  products:         ["products"],
+  product:          (id) => ["products", id],
+  productBySku:     (sku) => ["products", "sku", sku],
+  lowStock:         ["products", "low-stock"],
+  salesOrders:      ["sales-orders"],
+  salesOrder:       (id) => ["sales-orders", id],
+  purchaseOrders:   ["purchase-orders"],
+  purchaseOrder:    (id) => ["purchase-orders", id],
+  ledger:           ["ledger"],
+  projects:         ["projects"],
+  project:          (id) => ["projects", id],
+  leads:            ["leads"],
+  lead:             (id) => ["leads", id],
+  tickets:          ["tickets"],
+  ticket:           (id) => ["tickets", id],
+  approvalsPending: ["approvals-pending"],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  MUTATION FACTORY
-//  Wraps useMutation and auto-invalidates the given query keys on success
 // ─────────────────────────────────────────────────────────────────────────────
 function useMut(mutFn, invalidateKeys = [], options = {}) {
   const qc = useQueryClient();
@@ -65,12 +65,6 @@ function useMut(mutFn, invalidateKeys = [], options = {}) {
 //  DASHBOARD
 // =============================================================================
 
-/**
- * Fetches live KPI summary from /dashboard/kpis
- * Returns: { ytdRevenue, totalOrders, activeCustomers,
- *            totalInventoryUnits, lowStockCount,
- *            overdueInvoices, pendingApprovals, openTickets }
- */
 export function useKpis() {
   return useQuery({
     queryKey: QK.kpis,
@@ -87,6 +81,7 @@ export function useRevenueSeries() {
     staleTime: 5 * 60 * 1000,
   });
 }
+
 export function useSalesByRegion() {
   return useQuery({
     queryKey: ["dashboard", "sales-by-region"],
@@ -103,23 +98,40 @@ export function useInventoryStatus() {
   });
 }
 
-
 export function useRecentActivities() {
   return useQuery({
     queryKey: ["dashboard", "recent-activities"],
     queryFn:  dashboardApi.getRecentActivities,
-    staleTime: 30 * 1000,
-    refetchInterval: 30 * 1000,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 }
 
-
-
+// =============================================================================
+//  APPROVALS
+// =============================================================================
+export function useApprovalsPending() {
+  return useQuery({
+    queryKey: QK.approvalsPending,
+    queryFn: async () => {
+      const res = await api.get("/approvals/pending");
+      // res IS the data — your api client unwraps axios response automatically
+      const d = res?.data ?? res;
+      if (Array.isArray(d)) return d;
+      if (d && Array.isArray(d.content)) return d.content;
+      return [];
+    },
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
+  });
+}
 // =============================================================================
 //  EMPLOYEES
 // =============================================================================
 
-/** Fetch all employees */
 export function useEmployees() {
   return useQuery({
     queryKey: QK.employees,
@@ -127,7 +139,6 @@ export function useEmployees() {
   });
 }
 
-/** Fetch a single employee by ID */
 export function useEmployee(id) {
   return useQuery({
     queryKey: QK.employee(id),
@@ -136,11 +147,6 @@ export function useEmployee(id) {
   });
 }
 
-/**
- * Create a new employee
- * Expects: { name, role, department, email, status, joinedDate }
- * Backend enums for status: ACTIVE | ON_LEAVE | TERMINATED
- */
 export function useCreateEmployee(options) {
   return useMut(
     (body) => employeesApi.create(body),
@@ -149,10 +155,6 @@ export function useCreateEmployee(options) {
   );
 }
 
-/**
- * Update an existing employee
- * Expects: { id, name, role, department, email, status, joinedDate }
- */
 export function useUpdateEmployee(options) {
   return useMut(
     ({ id, ...body }) => employeesApi.update(id, body),
@@ -161,7 +163,6 @@ export function useUpdateEmployee(options) {
   );
 }
 
-/** Delete employee by ID */
 export function useDeleteEmployee(options) {
   return useMut(
     (id) => employeesApi.delete(id),
@@ -174,7 +175,6 @@ export function useDeleteEmployee(options) {
 //  CUSTOMERS
 // =============================================================================
 
-/** Fetch all customers */
 export function useCustomers() {
   return useQuery({
     queryKey: QK.customers,
@@ -182,7 +182,6 @@ export function useCustomers() {
   });
 }
 
-/** Fetch a single customer by ID */
 export function useCustomer(id) {
   return useQuery({
     queryKey: QK.customer(id),
@@ -191,11 +190,6 @@ export function useCustomer(id) {
   });
 }
 
-/**
- * Create a new customer
- * Expects: { name, contactPerson, email, country, status }
- * Backend enums for status: ACTIVE | OVERDUE | INACTIVE
- */
 export function useCreateCustomer(options) {
   return useMut(
     (body) => customersApi.create(body),
@@ -204,10 +198,6 @@ export function useCreateCustomer(options) {
   );
 }
 
-/**
- * Update an existing customer
- * Expects: { id, name, contactPerson, email, country, status }
- */
 export function useUpdateCustomer(options) {
   return useMut(
     ({ id, ...body }) => customersApi.update(id, body),
@@ -216,7 +206,6 @@ export function useUpdateCustomer(options) {
   );
 }
 
-/** Delete customer by ID */
 export function useDeleteCustomer(options) {
   return useMut(
     (id) => customersApi.delete(id),
@@ -229,7 +218,6 @@ export function useDeleteCustomer(options) {
 //  SUPPLIERS
 // =============================================================================
 
-/** Fetch all suppliers */
 export function useSuppliers() {
   return useQuery({
     queryKey: QK.suppliers,
@@ -237,7 +225,6 @@ export function useSuppliers() {
   });
 }
 
-/** Fetch a single supplier by ID */
 export function useSupplier(id) {
   return useQuery({
     queryKey: QK.supplier(id),
@@ -246,10 +233,6 @@ export function useSupplier(id) {
   });
 }
 
-/**
- * Create a new supplier
- * Expects: { name, contactPerson, country, rating, leadTime }
- */
 export function useCreateSupplier(options) {
   return useMut(
     (body) => suppliersApi.create(body),
@@ -258,10 +241,6 @@ export function useCreateSupplier(options) {
   );
 }
 
-/**
- * Update an existing supplier
- * Expects: { id, name, contactPerson, country, rating, leadTime }
- */
 export function useUpdateSupplier(options) {
   return useMut(
     ({ id, ...body }) => suppliersApi.update(id, body),
@@ -270,7 +249,6 @@ export function useUpdateSupplier(options) {
   );
 }
 
-/** Delete supplier by ID */
 export function useDeleteSupplier(options) {
   return useMut(
     (id) => suppliersApi.delete(id),
@@ -283,7 +261,6 @@ export function useDeleteSupplier(options) {
 //  PRODUCTS / INVENTORY
 // =============================================================================
 
-/** Fetch all products */
 export function useProducts() {
   return useQuery({
     queryKey: QK.products,
@@ -291,7 +268,6 @@ export function useProducts() {
   });
 }
 
-/** Fetch a single product by database ID */
 export function useProduct(id) {
   return useQuery({
     queryKey: QK.product(id),
@@ -300,10 +276,6 @@ export function useProduct(id) {
   });
 }
 
-/**
- * Fetch a product by SKU string — used by the barcode scanner
- * Automatically enabled only when sku is a non-empty string
- */
 export function useProductBySku(sku) {
   return useQuery({
     queryKey: QK.productBySku(sku),
@@ -312,7 +284,6 @@ export function useProductBySku(sku) {
   });
 }
 
-/** Fetch only products below their reorder point */
 export function useLowStockProducts() {
   return useQuery({
     queryKey: QK.lowStock,
@@ -320,10 +291,6 @@ export function useLowStockProducts() {
   });
 }
 
-/**
- * Create a new product
- * Expects: { sku, name, category, supplierId, stockQuantity, reorderPoint, unitPrice }
- */
 export function useCreateProduct(options) {
   return useMut(
     (body) => productsApi.create(body),
@@ -332,10 +299,6 @@ export function useCreateProduct(options) {
   );
 }
 
-/**
- * Update an existing product
- * Expects: { id, sku, name, category, supplierId, stockQuantity, reorderPoint, unitPrice }
- */
 export function useUpdateProduct(options) {
   return useMut(
     ({ id, ...body }) => productsApi.update(id, body),
@@ -344,7 +307,6 @@ export function useUpdateProduct(options) {
   );
 }
 
-/** Delete product by ID */
 export function useDeleteProduct(options) {
   return useMut(
     (id) => productsApi.delete(id),
@@ -357,7 +319,6 @@ export function useDeleteProduct(options) {
 //  SALES ORDERS
 // =============================================================================
 
-/** Fetch all sales orders */
 export function useSalesOrders() {
   return useQuery({
     queryKey: QK.salesOrders,
@@ -365,7 +326,6 @@ export function useSalesOrders() {
   });
 }
 
-/** Fetch a single sales order by ID */
 export function useSalesOrder(id) {
   return useQuery({
     queryKey: QK.salesOrder(id),
@@ -374,12 +334,6 @@ export function useSalesOrder(id) {
   });
 }
 
-/**
- * Create a new sales order
- * Expects: { customerId, orderDate, total, status?, paymentStatus?, notes? }
- * Backend enums for status:        QUOTED | PROCESSING | PICKING | FULFILLED | CANCELLED
- * Backend enums for paymentStatus: PENDING | PARTIAL | PAID
- */
 export function useCreateSalesOrder(options) {
   return useMut(
     (body) => salesOrdersApi.create(body),
@@ -388,10 +342,6 @@ export function useCreateSalesOrder(options) {
   );
 }
 
-/**
- * Update only the status of a sales order
- * Expects: { id, status }
- */
 export function useUpdateSalesOrderStatus(options) {
   return useMut(
     ({ id, status }) => salesOrdersApi.updateStatus(id, status),
@@ -400,7 +350,6 @@ export function useUpdateSalesOrderStatus(options) {
   );
 }
 
-/** Delete sales order by ID */
 export function useDeleteSalesOrder(options) {
   return useMut(
     (id) => salesOrdersApi.delete(id),
@@ -413,7 +362,6 @@ export function useDeleteSalesOrder(options) {
 //  PURCHASE ORDERS
 // =============================================================================
 
-/** Fetch all purchase orders */
 export function usePurchaseOrders() {
   return useQuery({
     queryKey: QK.purchaseOrders,
@@ -421,7 +369,6 @@ export function usePurchaseOrders() {
   });
 }
 
-/** Fetch a single purchase order by ID */
 export function usePurchaseOrder(id) {
   return useQuery({
     queryKey: QK.purchaseOrder(id),
@@ -430,11 +377,6 @@ export function usePurchaseOrder(id) {
   });
 }
 
-/**
- * Create a new purchase order
- * Expects: { supplierId, orderDate, total, notes? }
- * Backend always creates with status PENDING_APPROVAL
- */
 export function useCreatePurchaseOrder(options) {
   return useMut(
     (body) => purchaseOrdersApi.create(body),
@@ -443,11 +385,6 @@ export function useCreatePurchaseOrder(options) {
   );
 }
 
-/**
- * Update only the status of a purchase order
- * Expects: { id, status }
- * Backend enums: PENDING_APPROVAL | APPROVED | IN_TRANSIT | RECEIVED | CANCELLED
- */
 export function useUpdatePurchaseOrderStatus(options) {
   return useMut(
     ({ id, status }) => purchaseOrdersApi.updateStatus(id, status),
@@ -456,7 +393,6 @@ export function useUpdatePurchaseOrderStatus(options) {
   );
 }
 
-/** Delete purchase order by ID */
 export function useDeletePurchaseOrder(options) {
   return useMut(
     (id) => purchaseOrdersApi.delete(id),
@@ -469,7 +405,6 @@ export function useDeletePurchaseOrder(options) {
 //  LEDGER / ACCOUNTING
 // =============================================================================
 
-/** Fetch all ledger (journal) entries */
 export function useLedger() {
   return useQuery({
     queryKey: QK.ledger,
@@ -477,11 +412,6 @@ export function useLedger() {
   });
 }
 
-/**
- * Post a new journal entry
- * Expects: { entryDate, account, debit?, credit?, reference?, memo?, entryType? }
- * Backend enums for entryType: REVENUE | EXPENSE | TRANSFER | JOURNAL
- */
 export function useCreateLedgerEntry(options) {
   return useMut(
     (body) => ledgerApi.create(body),
@@ -490,7 +420,6 @@ export function useCreateLedgerEntry(options) {
   );
 }
 
-/** Delete a ledger entry by ID — ADMIN only */
 export function useDeleteLedgerEntry(options) {
   return useMut(
     (id) => ledgerApi.delete(id),
@@ -503,7 +432,6 @@ export function useDeleteLedgerEntry(options) {
 //  PROJECTS
 // =============================================================================
 
-/** Fetch all projects */
 export function useProjects() {
   return useQuery({
     queryKey: QK.projects,
@@ -511,7 +439,6 @@ export function useProjects() {
   });
 }
 
-/** Fetch a single project by ID */
 export function useProject(id) {
   return useQuery({
     queryKey: QK.project(id),
@@ -520,11 +447,6 @@ export function useProject(id) {
   });
 }
 
-/**
- * Create a new project
- * Expects: { name, leadName, progressPercent?, deadline, status? }
- * Backend enums for status: ON_TRACK | AT_RISK | DELAYED | COMPLETED
- */
 export function useCreateProject(options) {
   return useMut(
     (body) => projectsApi.create(body),
@@ -533,10 +455,6 @@ export function useCreateProject(options) {
   );
 }
 
-/**
- * Update an existing project
- * Expects: { id, name, leadName, progressPercent, deadline, status }
- */
 export function useUpdateProject(options) {
   return useMut(
     ({ id, ...body }) => projectsApi.update(id, body),
@@ -545,7 +463,6 @@ export function useUpdateProject(options) {
   );
 }
 
-/** Delete project by ID */
 export function useDeleteProject(options) {
   return useMut(
     (id) => projectsApi.delete(id),
@@ -555,10 +472,9 @@ export function useDeleteProject(options) {
 }
 
 // =============================================================================
-//  LEADS  (CRM)
+//  LEADS (CRM)
 // =============================================================================
 
-/** Fetch all leads */
 export function useLeads() {
   return useQuery({
     queryKey: QK.leads,
@@ -566,7 +482,6 @@ export function useLeads() {
   });
 }
 
-/** Fetch a single lead by ID */
 export function useLead(id) {
   return useQuery({
     queryKey: QK.lead(id),
@@ -575,12 +490,6 @@ export function useLead(id) {
   });
 }
 
-/**
- * Create a new lead
- * Expects: { companyName, source, stage, estimatedValue, ownerName }
- * Backend enums for source: INBOUND | OUTBOUND | REFERRAL | TRADE_SHOW | WEBINAR
- * Backend enums for stage:  DISCOVERY | QUALIFIED | PROPOSAL | NEGOTIATION | CLOSED_WON | CLOSED_LOST
- */
 export function useCreateLead(options) {
   return useMut(
     (body) => leadsApi.create(body),
@@ -589,10 +498,6 @@ export function useCreateLead(options) {
   );
 }
 
-/**
- * Update an existing lead
- * Expects: { id, companyName, source, stage, estimatedValue, ownerName }
- */
 export function useUpdateLead(options) {
   return useMut(
     ({ id, ...body }) => leadsApi.update(id, body),
@@ -601,7 +506,6 @@ export function useUpdateLead(options) {
   );
 }
 
-/** Delete lead by ID */
 export function useDeleteLead(options) {
   return useMut(
     (id) => leadsApi.delete(id),
@@ -611,10 +515,9 @@ export function useDeleteLead(options) {
 }
 
 // =============================================================================
-//  SUPPORT TICKETS  (CRM)
+//  SUPPORT TICKETS (CRM)
 // =============================================================================
 
-/** Fetch all support tickets */
 export function useTickets() {
   return useQuery({
     queryKey: QK.tickets,
@@ -622,7 +525,6 @@ export function useTickets() {
   });
 }
 
-/** Fetch a single ticket by ID */
 export function useTicket(id) {
   return useQuery({
     queryKey: QK.ticket(id),
@@ -631,12 +533,6 @@ export function useTicket(id) {
   });
 }
 
-/**
- * Create a new support ticket
- * Expects: { customerId, subject, priority }
- * Backend enums for priority: LOW | MEDIUM | HIGH
- * Backend always creates with status OPEN
- */
 export function useCreateTicket(options) {
   return useMut(
     (body) => ticketsApi.create(body),
@@ -645,11 +541,6 @@ export function useCreateTicket(options) {
   );
 }
 
-/**
- * Update only the status of a ticket
- * Expects: { id, status }
- * Backend enums for status: OPEN | IN_PROGRESS | RESOLVED | CLOSED
- */
 export function useUpdateTicketStatus(options) {
   return useMut(
     ({ id, status }) => ticketsApi.updateStatus(id, status),
@@ -658,7 +549,6 @@ export function useUpdateTicketStatus(options) {
   );
 }
 
-/** Delete ticket by ID */
 export function useDeleteTicket(options) {
   return useMut(
     (id) => ticketsApi.delete(id),
@@ -667,40 +557,15 @@ export function useDeleteTicket(options) {
   );
 }
 
+// =============================================================================
+//  NOTIFICATIONS
+// =============================================================================
+
 export function useNotifications() {
   return useQuery({
     queryKey: ["notifications"],
     queryFn:  notificationsApi.getAll,
     staleTime: 30_000,
-    refetchInterval: 60_000,  // poll every minute
+    refetchInterval: 60_000,
   });
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

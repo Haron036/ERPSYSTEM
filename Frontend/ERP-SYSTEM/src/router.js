@@ -14,17 +14,20 @@ import EmployeesPage   from "./routes/employees";
 import CrmPage         from "./routes/crm";
 import ProjectsPage    from "./routes/projects";
 import ReportsPage     from "./routes/reports";
-import ApprovalsPage   from "./routes/approvals"; 
+import ApprovalsPage   from "./routes/approvals";
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      staleTime: 30_000,
+      staleTime: 0,          // ← was 30_000; each hook now controls its own
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
     },
   },
 });
 
-// ── Auth guard — redirects to /login if no token ──────────────────────────────
+// ── Auth guard ────────────────────────────────────────────────────────────────
 function requireAuth() {
   if (!token.get()) {
     throw redirect({ to: "/login" });
@@ -43,7 +46,7 @@ const loginRoute = createRoute({
 
 const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/register", 
+  path: "/register",
   component: RegisterPage,
 });
 
@@ -114,7 +117,7 @@ const reportsRoute = createRoute({
 const approvalsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/approvals",
-  beforeLoad: requireAuth, 
+  beforeLoad: requireAuth,
   component: ApprovalsPage,
 });
 

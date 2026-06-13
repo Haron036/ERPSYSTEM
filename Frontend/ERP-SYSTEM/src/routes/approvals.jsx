@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
   CheckCircle, XCircle, Clock, ShoppingCart,
-  Truck, BookOpen, CalendarDays,
+  Truck, BookOpen, CalendarDays, RefreshCw,
 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +19,7 @@ import {
   Table, TableBody, TableCell,
   TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { useApprovalsPending } from "@/hooks/useApi";
 
 const TABS = [
   { key: "ALL",            label: "All",            icon: Clock        },
@@ -48,17 +49,15 @@ export default function ApprovalsPage() {
   const [comment, setComment]   = useState("");
   const [decision, setDecision] = useState(null);
 
-  const { data: items = [], isLoading } = useQuery({
-  queryKey: ["approvals-pending"],
-  queryFn: () => api.get("/approvals/pending").then(r => r.data ?? []),
-  refetchInterval: 30_000,
-});
+  // Use the shared hook from useApi — single source of truth
+  const { data: items = [], isLoading, isError, refetch } = useApprovalsPending();
 
   const mutation = useMutation({
     mutationFn: ({ entityType, id, action, comment }) =>
       api.post(`/approvals/${entityType}/${id}/${action}`, { comment }),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["approvals-pending"] });
+      qc.invalidateQueries({ queryKey: ["kpis"] });
       toast.success(
         vars.action === "approve" ? "Approved successfully" : "Rejected",
         { description: `${vars.ref} has been ${vars.action}d.` }
@@ -66,14 +65,18 @@ export default function ApprovalsPage() {
       setDecision(null);
       setComment("");
     },
-    onError: () => toast.error("Action failed", {
-      description: "You may not have permission or the item was already actioned."
-    }),
+    onError: (err) => {
+      console.error("Approval action failed:", err);
+      toast.error("Action failed", {
+        description: "You may not have permission or the item was already actioned.",
+      });
+    },
   });
 
-  const filtered = tab === "ALL"
-    ? items
-    : items.filter(i => i.entityType === tab);
+  function getFiltered(key) {
+    if (!Array.isArray(items)) return [];
+    return key === "ALL" ? items : items.filter(i => i.entityType === key);
+  }
 
   function openDialog(item, action) {
     setDecision({ item, action });
@@ -96,18 +99,29 @@ export default function ApprovalsPage() {
       title="Approvals"
       breadcrumb="Workflow & Compliance"
       actions={
-        <span className="text-sm text-muted-foreground">
-          {items.length} item{items.length !== 1 ? "s" : ""} awaiting action
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground">
+            {items.length} item{items.length !== 1 ? "s" : ""} awaiting action
+          </span>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            Refresh
+          </Button>
+        </div>
       }
     >
-      {/* Tabs */}
+      {/* Error state */}
+      {isError && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3
+                        text-sm text-destructive mb-4">
+          Failed to load approvals. Check your connection and try refreshing.
+        </div>
+      )}
+
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           {TABS.map(({ key, label, icon: Icon }) => {
-            const count = key === "ALL"
-              ? items.length
-              : items.filter(i => i.entityType === key).length;
+            const count = getFiltered(key).length;
             return (
               <TabsTrigger key={key} value={key} className="gap-1.5">
                 <Icon className="h-3.5 w-3.5" />
@@ -123,84 +137,91 @@ export default function ApprovalsPage() {
           })}
         </TabsList>
 
-        {TABS.map(({ key }) => (
-          <TabsContent key={key} value={key} className="mt-4">
-            {isLoading ? (
-              <div className="py-16 text-center text-muted-foreground text-sm">
-                Loading…
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="py-16 text-center text-muted-foreground text-sm">
-                No pending approvals
-              </div>
-            ) : (
-              <div className="rounded-lg border overflow-hidden bg-card">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Reference</TableHead>
-                      <TableHead>Submitted By</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.map(item => (
-                      <TableRow key={`${item.entityType}-${item.id}`}>
-                        <TableCell>
-                          <span className={`inline-flex items-center rounded-md px-2 py-0.5
-                                           text-xs font-medium ${TYPE_COLORS[item.entityType]}`}>
-                            {TYPE_LABELS[item.entityType]}
-                          </span>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm font-medium">
-                          {item.ref}
-                        </TableCell>
-                        <TableCell>{item.submittedBy}</TableCell>
-                        <TableCell className="max-w-xs truncate text-muted-foreground text-sm">
-                          {item.description}
-                        </TableCell>
-                        <TableCell>
-                          {item.amount != null
-                            ? `KES ${Number(item.amount).toLocaleString()}`
-                            : "—"}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {item.date ? format(new Date(item.date), "dd MMM yyyy") : "—"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-destructive border-destructive/40
-                                         hover:bg-destructive/10"
-                              onClick={() => openDialog(item, "reject")}
-                            >
-                              <XCircle className="h-3.5 w-3.5 mr-1" />
-                              Reject
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                              onClick={() => openDialog(item, "approve")}
-                            >
-                              <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                              Approve
-                            </Button>
-                          </div>
-                        </TableCell>
+        {TABS.map(({ key }) => {
+          const rows = getFiltered(key);
+          return (
+            <TabsContent key={key} value={key} className="mt-4">
+              {isLoading ? (
+                <div className="py-16 text-center text-muted-foreground text-sm">
+                  Loading…
+                </div>
+              ) : rows.length === 0 ? (
+                <div className="py-16 text-center text-muted-foreground text-sm">
+                  No pending approvals
+                </div>
+              ) : (
+                <div className="rounded-lg border overflow-hidden bg-card">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Reference</TableHead>
+                        <TableHead>Submitted By</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </TabsContent>
-        ))}
+                    </TableHeader>
+                    <TableBody>
+                      {rows.map((item, idx) => (
+                        <TableRow key={`${item.entityType}-${item.ref}-${idx}`}>
+                          <TableCell>
+                            <span className={`inline-flex items-center rounded-md px-2 py-0.5
+                                             text-xs font-medium ${TYPE_COLORS[item.entityType]}`}>
+                              {TYPE_LABELS[item.entityType]}
+                            </span>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm font-medium">
+                            {item.ref}
+                          </TableCell>
+                          <TableCell>{item.submittedBy}</TableCell>
+                          <TableCell className="max-w-xs truncate text-muted-foreground text-sm">
+                            {item.description}
+                          </TableCell>
+                          <TableCell>
+                            {item.amount != null
+                              ? `KES ${Number(item.amount).toLocaleString()}`
+                              : "—"}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {item.date
+                              ? format(new Date(item.date), "dd MMM yyyy")
+                              : "—"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive border-destructive/40
+                                           hover:bg-destructive/10"
+                                onClick={() => openDialog(item, "reject")}
+                                disabled={mutation.isPending}
+                              >
+                                <XCircle className="h-3.5 w-3.5 mr-1" />
+                                Reject
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                onClick={() => openDialog(item, "approve")}
+                                disabled={mutation.isPending}
+                              >
+                                <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                                Approve
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+          );
+        })}
       </Tabs>
 
       {/* Confirm Dialog */}
@@ -215,17 +236,18 @@ export default function ApprovalsPage() {
                 ? <CheckCircle className="h-4 w-4" />
                 : <XCircle    className="h-4 w-4" />}
               {decision?.action === "approve" ? "Approve" : "Reject"}{" "}
-              {decision?.item.ref}
+              {decision?.item?.ref}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3 py-2">
             <p className="text-sm text-muted-foreground">
-              {decision?.item.description}
+              {decision?.item?.description}
             </p>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">
-                Comment <span className="text-muted-foreground">(optional)</span>
+                Comment{" "}
+                <span className="text-muted-foreground font-normal">(optional)</span>
               </label>
               <Textarea
                 value={comment}
@@ -237,7 +259,11 @@ export default function ApprovalsPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDecision(null)}>
+            <Button
+              variant="outline"
+              onClick={() => setDecision(null)}
+              disabled={mutation.isPending}
+            >
               Cancel
             </Button>
             <Button
@@ -249,7 +275,9 @@ export default function ApprovalsPage() {
             >
               {mutation.isPending
                 ? "Processing…"
-                : decision?.action === "approve" ? "Confirm Approve" : "Confirm Reject"}
+                : decision?.action === "approve"
+                  ? "Confirm Approve"
+                  : "Confirm Reject"}
             </Button>
           </DialogFooter>
         </DialogContent>
