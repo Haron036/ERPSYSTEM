@@ -12,6 +12,7 @@ import {
   leadsApi,
   ticketsApi,
   notificationsApi,
+  leaveRequestsApi,
   api,
 } from "@/lib/api";
 
@@ -42,6 +43,7 @@ export const QK = {
   tickets:          ["tickets"],
   ticket:           (id) => ["tickets", id],
   approvalsPending: ["approvals-pending"],
+  leaveRequests:    ["leave-requests"], 
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -569,3 +571,28 @@ export function useNotifications() {
     refetchInterval: 60_000,
   });
 }
+export function useLeaveRequests() {
+  return useQuery({
+    queryKey: QK.leaveRequests,
+    queryFn:  leaveRequestsApi.getAll,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+}
+ 
+export function useCreateLeaveRequest(options) {
+  return useMut(
+    (body) => leaveRequestsApi.create(body),
+    [QK.leaveRequests, QK.approvalsPending, QK.employees],
+    options,
+  );
+}
+ 
+export function useCancelLeaveRequest(options) {
+  return useMut(
+    (id) => leaveRequestsApi.cancel(id),
+    [QK.leaveRequests, QK.approvalsPending, QK.employees],
+    options,
+  );
+}
+ 

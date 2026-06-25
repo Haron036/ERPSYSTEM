@@ -161,6 +161,13 @@ export const purchaseOrdersApi = {
   updateStatus: (id, status)      => apiFetch(`/purchase-orders/${id}/status?status=${status}`, { method: "PATCH" }),
   delete:       (id)              => apiFetch(`/purchase-orders/${id}`,     { method: "DELETE" }),
 };
+// ── Leave Requests ───────────────────────────────────────────────────────────
+export const leaveRequestsApi = {
+  getAll:  ()     => apiFetch("/leave-requests"),
+  getById: (id)   => apiFetch(`/leave-requests/${id}`),
+  create:  (body) => apiFetch("/leave-requests",         { method: "POST",  body: JSON.stringify(body) }),
+  cancel:  (id)   => apiFetch(`/leave-requests/${id}/cancel`, { method: "PATCH" }),
+};
 
 // ── Ledger / Accounting ───────────────────────────────────────────────────────
 export const ledgerApi = {

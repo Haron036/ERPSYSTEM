@@ -43,28 +43,43 @@ const TYPE_COLORS = {
   LEAVE_REQUEST:  "bg-emerald-100 text-emerald-700",
 };
 
+// Which query keys each entity type affects when approved/rejected.
+// Keeps the sidebar badge, the entity list, and KPIs all in sync.
+const ENTITY_INVALIDATIONS = {
+  PURCHASE_ORDER: [["purchase-orders"], ["kpis"]],
+  SALES_ORDER:    [["sales-orders"],    ["kpis"]],
+  LEDGER_ENTRY:   [["ledger"],          ["kpis"]],
+  LEAVE_REQUEST:  [["employees"],       ["kpis"]],
+};
+
 export default function ApprovalsPage() {
   const qc = useQueryClient();
   const [tab, setTab]           = useState("ALL");
   const [comment, setComment]   = useState("");
   const [decision, setDecision] = useState(null);
 
-  // Use the shared hook from useApi — single source of truth
   const { data: items = [], isLoading, isError, refetch } = useApprovalsPending();
 
   const mutation = useMutation({
     mutationFn: ({ entityType, id, action, comment }) =>
       api.post(`/approvals/${entityType}/${id}/${action}`, { comment }),
+
     onSuccess: (_, vars) => {
+      // Always refresh the approvals queue and sidebar badge
       qc.invalidateQueries({ queryKey: ["approvals-pending"] });
-      qc.invalidateQueries({ queryKey: ["kpis"] });
+
+      // Invalidate the specific entity list + KPIs so other pages update immediately
+      const extraKeys = ENTITY_INVALIDATIONS[vars.entityType] ?? [["kpis"]];
+      extraKeys.forEach((key) => qc.invalidateQueries({ queryKey: key }));
+
       toast.success(
         vars.action === "approve" ? "Approved successfully" : "Rejected",
-        { description: `${vars.ref} has been ${vars.action}d.` }
+        { description: `${vars.ref} has been ${vars.action}d.` },
       );
       setDecision(null);
       setComment("");
     },
+
     onError: (err) => {
       console.error("Approval action failed:", err);
       toast.error("Action failed", {
@@ -75,7 +90,7 @@ export default function ApprovalsPage() {
 
   function getFiltered(key) {
     if (!Array.isArray(items)) return [];
-    return key === "ALL" ? items : items.filter(i => i.entityType === key);
+    return key === "ALL" ? items : items.filter((i) => i.entityType === key);
   }
 
   function openDialog(item, action) {
@@ -110,7 +125,6 @@ export default function ApprovalsPage() {
         </div>
       }
     >
-      {/* Error state */}
       {isError && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3
                         text-sm text-destructive mb-4">
@@ -224,13 +238,12 @@ export default function ApprovalsPage() {
         })}
       </Tabs>
 
-      {/* Confirm Dialog */}
+      {/* Confirm dialog */}
       <Dialog open={!!decision} onOpenChange={() => setDecision(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className={`flex items-center gap-2 ${
-              decision?.action === "approve"
-                ? "text-emerald-600" : "text-destructive"
+              decision?.action === "approve" ? "text-emerald-600" : "text-destructive"
             }`}>
               {decision?.action === "approve"
                 ? <CheckCircle className="h-4 w-4" />
@@ -251,7 +264,7 @@ export default function ApprovalsPage() {
               </label>
               <Textarea
                 value={comment}
-                onChange={e => setComment(e.target.value)}
+                onChange={(e) => setComment(e.target.value)}
                 placeholder="Add a note for the record…"
                 rows={3}
               />
@@ -269,9 +282,11 @@ export default function ApprovalsPage() {
             <Button
               onClick={confirmDecision}
               disabled={mutation.isPending}
-              className={decision?.action === "approve"
-                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                : "bg-destructive hover:bg-destructive/90 text-white"}
+              className={
+                decision?.action === "approve"
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  : "bg-destructive hover:bg-destructive/90 text-white"
+              }
             >
               {mutation.isPending
                 ? "Processing…"

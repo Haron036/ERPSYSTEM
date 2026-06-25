@@ -5,19 +5,25 @@ import { cn } from "@/lib/utils";
 export function KpiCard({
   label,
   value,
-  change,
+  change,       
   icon,
   format = "number",
 }) {
-  const positive = change >= 0;
+  // value may arrive as a pre-formatted string (e.g. "$117,800") or a number
   const formatted =
-    format === "currency"
-      ? value.toLocaleString("en-US", {
+    typeof value === "string"
+      ? value
+      : format === "currency"
+      ? (value ?? 0).toLocaleString("en-US", {
           style: "currency",
           currency: "USD",
           maximumFractionDigits: 0,
         })
-      : value.toLocaleString("en-US");
+      : (value ?? 0).toLocaleString("en-US");
+
+  // Only show the change row when a real number is provided
+  const hasChange = typeof change === "number" && isFinite(change);
+  const positive  = hasChange && change >= 0;
 
   return (
     <Card className="relative overflow-hidden">
@@ -30,24 +36,30 @@ export function KpiCard({
             <div className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
               {formatted}
             </div>
-            <div
-              className={cn(
-                "mt-1 inline-flex items-center gap-1 text-xs font-medium",
-                positive ? "text-success" : "text-destructive"
-              )}
-            >
-              {positive ? (
-                <ArrowUpRight className="h-3 w-3" />
-              ) : (
-                <ArrowDownRight className="h-3 w-3" />
-              )}
-              {Math.abs(change)}%{" "}
-              <span className="text-muted-foreground">vs last month</span>
+
+            {hasChange && (
+              <div
+                className={cn(
+                  "mt-1 inline-flex items-center gap-1 text-xs font-medium",
+                  positive ? "text-success" : "text-destructive",
+                )}
+              >
+                {positive ? (
+                  <ArrowUpRight className="h-3 w-3" />
+                ) : (
+                  <ArrowDownRight className="h-3 w-3" />
+                )}
+                {Math.abs(change).toFixed(1)}%{" "}
+                <span className="text-muted-foreground">vs last month</span>
+              </div>
+            )}
+          </div>
+
+          {icon && (
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+              {icon}
             </div>
-          </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
-            {icon}
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>
