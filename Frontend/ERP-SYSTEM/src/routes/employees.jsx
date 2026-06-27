@@ -1,30 +1,64 @@
 import { useState, useMemo } from "react";
 import {
-  UserPlus, Download, Users, CheckCircle2, Plus,
-  CalendarDays, XCircle, AlertCircle, Clock,
+  UserPlus,
+  Download,
+  Users,
+  CheckCircle2,
+  Plus,
+  CalendarDays,
+  XCircle,
+  AlertCircle,
+  Clock,
+  KeyRound,
 } from "lucide-react";
 import {
-  Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
-import { PageShell }     from "@/components/page-shell";
-import { Button }        from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DataTable }     from "@/components/data-table";
-import { StatusBadge }   from "@/components/status-badge";
-import { KpiCard }       from "@/components/kpi-card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Input }         from "@/components/ui/input";
-import { Label }         from "@/components/ui/label";
+import { PageShell } from "@/components/page-shell";
+import { Button } from "@/components/ui/button";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DataTable } from "@/components/data-table";
+import { StatusBadge } from "@/components/status-badge";
+import { KpiCard } from "@/components/kpi-card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
   useEmployees,
@@ -36,44 +70,56 @@ import {
 import { departmentHeadcount } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { format } from "date-fns";
-
+import AttendanceTab from "../routes/attendance-tab";
+import SettingsTab from "../Components/settings-tab";
 // ── constants ─────────────────────────────────────────────────────────────────
 
 const EMPTY_EMP = {
-  name: "", role: "", department: "", email: "", status: "ACTIVE", joinedDate: "",
+  name: "",
+  role: "",
+  department: "",
+  email: "",
+  status: "ACTIVE",
+  joinedDate: "",
 };
 
 const EMPTY_LEAVE = {
-  employeeId: "", leaveType: "ANNUAL", startDate: "", endDate: "", reason: "",
+  employeeId: "",
+  leaveType: "ANNUAL",
+  startDate: "",
+  endDate: "",
+  reason: "",
 };
 
 const LEAVE_TYPES = [
-  { value: "ANNUAL",    label: "Annual Leave"    },
-  { value: "SICK",      label: "Sick Leave"      },
+  { value: "ANNUAL", label: "Annual Leave" },
+  { value: "SICK", label: "Sick Leave" },
   { value: "MATERNITY", label: "Maternity Leave" },
   { value: "PATERNITY", label: "Paternity Leave" },
-  { value: "UNPAID",    label: "Unpaid Leave"    },
+  { value: "UNPAID", label: "Unpaid Leave" },
 ];
 
 const LEAVE_STATUS_COLORS = {
   PENDING_APPROVAL: "bg-amber-100  text-amber-700",
-  APPROVED:         "bg-emerald-100 text-emerald-700",
-  REJECTED:         "bg-red-100    text-red-700",
-  CANCELLED:        "bg-gray-100   text-gray-500",
+  APPROVED: "bg-emerald-100 text-emerald-700",
+  REJECTED: "bg-red-100    text-red-700",
+  CANCELLED: "bg-gray-100   text-gray-500",
 };
 
-const leaveTypeLabel  = (v) => LEAVE_TYPES.find((t) => t.value === v)?.label ?? v;
-const statusLabel     = (s) =>
+const leaveTypeLabel = (v) =>
+  LEAVE_TYPES.find((t) => t.value === v)?.label ?? v;
+const statusLabel = (s) =>
   s === "ON_LEAVE" ? "On Leave" : s === "TERMINATED" ? "Terminated" : "Active";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function LeaveStatusPill({ status }) {
   return (
-    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium
-                      ${LEAVE_STATUS_COLORS[status] ?? "bg-gray-100 text-gray-500"}`}>
-      {status?.replace("_", " ")}
+    <span
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium
+                      ${LEAVE_STATUS_COLORS[status] ?? "bg-gray-100 text-gray-500"}`}
+    >
+      {status?.replace(/_/g, " ")}
     </span>
   );
 }
@@ -88,47 +134,53 @@ function daysBetween(start, end) {
 
 export default function EmployeesPage() {
   const { data: employees = [], isLoading: empLoading } = useEmployees();
-  const { data: leaveRequests = [], isLoading: leaveLoading, isError: leaveError } =
-    useLeaveRequests();
+  const {
+    data: leaveRequests = [],
+    isLoading: leaveLoading,
+    isError: leaveError,
+  } = useLeaveRequests();
 
-  const createEmployee    = useCreateEmployee();
-  const createLeaveReq    = useCreateLeaveRequest();
-  const cancelLeaveReq    = useCancelLeaveRequest();
+  const createEmployee = useCreateEmployee();
+  const createLeaveReq = useCreateLeaveRequest();
+  const cancelLeaveReq = useCancelLeaveRequest();
 
-  // Employee form
-  const [empOpen,    setEmpOpen]    = useState(false);
+  // Employee form state
+  const [empOpen, setEmpOpen] = useState(false);
   const [empSuccess, setEmpSuccess] = useState(false);
-  const [empForm,    setEmpForm]    = useState(EMPTY_EMP);
+  const [empForm, setEmpForm] = useState(EMPTY_EMP);
+  const [createdEmp, setCreatedEmp] = useState(null); // holds the created employee for success screen
 
-  // Leave form
-  const [leaveOpen,    setLeaveOpen]    = useState(false);
+  // Leave form state
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const [leaveSuccess, setLeaveSuccess] = useState(false);
-  const [leaveForm,    setLeaveForm]    = useState(EMPTY_LEAVE);
+  const [leaveForm, setLeaveForm] = useState(EMPTY_LEAVE);
 
-  // Cancel confirm
+  // Cancel confirm state
   const [cancelTarget, setCancelTarget] = useState(null);
 
   // ── derived data ────────────────────────────────────────────────────────────
 
-  const headcount = useMemo(() =>
-    employees.length
-      ? Object.entries(
-          employees.reduce((acc, e) => {
-            acc[e.department] = (acc[e.department] || 0) + 1;
-            return acc;
-          }, {}),
-        ).map(([dept, count]) => ({ dept, count }))
-      : departmentHeadcount,
+  const headcount = useMemo(
+    () =>
+      employees.length
+        ? Object.entries(
+            employees.reduce((acc, e) => {
+              acc[e.department] = (acc[e.department] || 0) + 1;
+              return acc;
+            }, {}),
+          ).map(([dept, count]) => ({ dept, count }))
+        : departmentHeadcount,
     [employees],
   );
 
-  const active  = employees.filter((e) => e.status === "ACTIVE").length;
+  const active = employees.filter((e) => e.status === "ACTIVE").length;
   const onLeave = employees.filter((e) => e.status === "ON_LEAVE").length;
-
-  const pendingLeave   = leaveRequests.filter((l) => l.status === "PENDING_APPROVAL").length;
-  const approvedLeave  = leaveRequests.filter((l) => l.status === "APPROVED").length;
-
-  // Preview days in the leave form
+  const pendingLeave = leaveRequests.filter(
+    (l) => l.status === "PENDING_APPROVAL",
+  ).length;
+  const approvedLeave = leaveRequests.filter(
+    (l) => l.status === "APPROVED",
+  ).length;
   const previewDays = daysBetween(leaveForm.startDate, leaveForm.endDate);
 
   // ── handlers ────────────────────────────────────────────────────────────────
@@ -136,9 +188,16 @@ export default function EmployeesPage() {
   async function submitEmp(e) {
     e.preventDefault();
     try {
-      await createEmployee.mutateAsync(empForm);
+      const created = await createEmployee.mutateAsync(empForm);
+      setCreatedEmp(created);
       setEmpSuccess(true);
-      setTimeout(() => { setEmpSuccess(false); setEmpOpen(false); setEmpForm(EMPTY_EMP); }, 1500);
+      // Longer timeout so admin can read and note the default password
+      setTimeout(() => {
+        setEmpSuccess(false);
+        setEmpOpen(false);
+        setEmpForm(EMPTY_EMP);
+        setCreatedEmp(null);
+      }, 10_000);
     } catch (err) {
       toast.error("Failed to add employee", { description: err?.message });
     }
@@ -153,10 +212,10 @@ export default function EmployeesPage() {
     try {
       await createLeaveReq.mutateAsync({
         employeeId: parseInt(leaveForm.employeeId),
-        leaveType:  leaveForm.leaveType,
-        startDate:  leaveForm.startDate,
-        endDate:    leaveForm.endDate,
-        reason:     leaveForm.reason,
+        leaveType: leaveForm.leaveType,
+        startDate: leaveForm.startDate,
+        endDate: leaveForm.endDate,
+        reason: leaveForm.reason,
       });
       setLeaveSuccess(true);
       setTimeout(() => {
@@ -165,7 +224,9 @@ export default function EmployeesPage() {
         setLeaveForm(EMPTY_LEAVE);
       }, 1800);
     } catch (err) {
-      toast.error("Failed to submit leave request", { description: err?.message });
+      toast.error("Failed to submit leave request", {
+        description: err?.message,
+      });
     }
   }
 
@@ -185,26 +246,39 @@ export default function EmployeesPage() {
     const rows = [
       ["Code", "Name", "Role", "Department", "Email", "Status", "Joined"],
       ...employees.map((e) => [
-        e.employeeCode, e.name, e.role, e.department, e.email, e.status, e.joinedDate,
+        e.employeeCode,
+        e.name,
+        e.role,
+        e.department,
+        e.email,
+        e.status,
+        e.joinedDate,
       ]),
     ];
     const csv = rows.map((r) => r.join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    Object.assign(document.createElement("a"), { href: url, download: "employees.csv" }).click();
+    Object.assign(document.createElement("a"), {
+      href: url,
+      download: "employees.csv",
+    }).click();
     URL.revokeObjectURL(url);
   }
 
-  // ── table columns ────────────────────────────────────────────────────────────
+  // ── table columns ─────────────────────────────────────────────────────────
 
   const empCols = [
     { key: "employeeCode", header: "ID" },
     {
-      key: "name", header: "Name",
+      key: "name",
+      header: "Name",
       render: (r) => (
         <div className="flex items-center gap-2">
           <Avatar className="h-6 w-6">
             <AvatarFallback className="bg-muted text-[10px]">
-              {r.name.split(" ").map((p) => p[0]).join("")}
+              {r.name
+                .split(" ")
+                .map((p) => p[0])
+                .join("")}
             </AvatarFallback>
           </Avatar>
           <div>
@@ -214,41 +288,49 @@ export default function EmployeesPage() {
         </div>
       ),
     },
-    { key: "role",       header: "Role"       },
+    { key: "role", header: "Role" },
     { key: "department", header: "Department" },
-    { key: "joinedDate", header: "Joined"     },
+    { key: "joinedDate", header: "Joined" },
     {
-      key: "status", header: "Status",
+      key: "status",
+      header: "Status",
       render: (r) => <StatusBadge value={statusLabel(r.status)} />,
     },
   ];
 
   const leaveCols = [
     {
-      key: "leaveNumber", header: "Ref",
+      key: "leaveNumber",
+      header: "Ref",
       render: (r) => <span className="font-mono text-xs">{r.leaveNumber}</span>,
     },
-    { key: "employeeName", header: "Employee"   },
-    { key: "department",   header: "Department" },
+    { key: "employeeName", header: "Employee" },
+    { key: "department", header: "Department" },
     {
-      key: "leaveType", header: "Type",
+      key: "leaveType",
+      header: "Type",
       render: (r) => leaveTypeLabel(r.leaveType),
     },
     {
-      key: "startDate", header: "Period",
+      key: "startDate",
+      header: "Period",
       render: (r) => (
         <span className="text-xs">
           {r.startDate} → {r.endDate}
-          <span className="ml-1 text-muted-foreground">({r.daysRequested}d)</span>
+          <span className="ml-1 text-muted-foreground">
+            ({r.daysRequested}d)
+          </span>
         </span>
       ),
     },
     {
-      key: "status", header: "Status",
+      key: "status",
+      header: "Status",
       render: (r) => <LeaveStatusPill status={r.status} />,
     },
     {
-      key: "_actions", header: "",
+      key: "_actions",
+      header: "",
       render: (r) =>
         r.status === "PENDING_APPROVAL" ? (
           <Button
@@ -265,7 +347,7 @@ export default function EmployeesPage() {
     },
   ];
 
-  // ── render ───────────────────────────────────────────────────────────────────
+  // ── render ────────────────────────────────────────────────────────────────
 
   return (
     <>
@@ -278,7 +360,11 @@ export default function EmployeesPage() {
               <Download className="mr-1.5 h-3.5 w-3.5" />
               Export
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setLeaveOpen(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLeaveOpen(true)}
+            >
               <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
               Request Leave
             </Button>
@@ -291,14 +377,29 @@ export default function EmployeesPage() {
       >
         {/* KPIs */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Total Headcount" value={employees.length || 302} change={2.1}
-            icon={<Users className="h-4 w-4" />} />
-          <KpiCard label="Active Today"    value={active  || 284}          change={1.4}
-            icon={<Users className="h-4 w-4" />} />
-          <KpiCard label="On Leave"        value={onLeave || 11}           change={-3.2}
-            icon={<CalendarDays className="h-4 w-4" />} />
-          <KpiCard label="Pending Leave"   value={pendingLeave}
-            icon={<Clock className="h-4 w-4" />} />
+          <KpiCard
+            label="Total Headcount"
+            value={employees.length || 0}
+            change={2.1}
+            icon={<Users className="h-4 w-4" />}
+          />
+          <KpiCard
+            label="Active Today"
+            value={active}
+            change={1.4}
+            icon={<Users className="h-4 w-4" />}
+          />
+          <KpiCard
+            label="On Leave"
+            value={onLeave}
+            change={-3.2}
+            icon={<CalendarDays className="h-4 w-4" />}
+          />
+          <KpiCard
+            label="Pending Leave"
+            value={pendingLeave}
+            icon={<Clock className="h-4 w-4" />}
+          />
         </div>
 
         {/* Headcount chart */}
@@ -312,10 +413,19 @@ export default function EmployeesPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={headcount} margin={{ left: -10, right: 8 }}>
                   <CartesianGrid
-                    stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="dept" tick={{ fontSize: 11 }}
-                    stroke="var(--muted-foreground)" />
-                  <YAxis tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
+                    stroke="var(--border)"
+                    strokeDasharray="3 3"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="dept"
+                    tick={{ fontSize: 11 }}
+                    stroke="var(--muted-foreground)"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    stroke="var(--muted-foreground)"
+                  />
                   <Tooltip
                     contentStyle={{
                       background: "var(--popover)",
@@ -324,7 +434,11 @@ export default function EmployeesPage() {
                       fontSize: 12,
                     }}
                   />
-                  <Bar dataKey="count" fill="var(--chart-1)" radius={[3, 3, 0, 0]} />
+                  <Bar
+                    dataKey="count"
+                    fill="var(--chart-1)"
+                    radius={[3, 3, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -338,8 +452,10 @@ export default function EmployeesPage() {
             <TabsTrigger value="leave">
               Leave
               {pendingLeave > 0 && (
-                <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5
-                                 text-[10px] font-semibold text-amber-700">
+                <span
+                  className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5
+                                 text-[10px] font-semibold text-amber-700"
+                >
                   {pendingLeave}
                 </span>
               )}
@@ -347,29 +463,44 @@ export default function EmployeesPage() {
             <TabsTrigger value="attendance">Attendance</TabsTrigger>
             <TabsTrigger value="payroll">Payroll</TabsTrigger>
             <TabsTrigger value="performance">Performance</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
           {/* Directory */}
           <TabsContent value="directory" className="mt-3">
-            {empLoading
-              ? <p className="py-8 text-center text-sm text-muted-foreground">Loading employees…</p>
-              : <DataTable columns={empCols} rows={employees} />}
+            {empLoading ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Loading employees…
+              </p>
+            ) : (
+              <DataTable columns={empCols} rows={employees} />
+            )}
           </TabsContent>
 
           {/* Leave */}
           <TabsContent value="leave" className="mt-3 space-y-3">
-            {/* Summary row */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
                 { label: "Total requests", value: leaveRequests.length },
-                { label: "Pending",        value: pendingLeave,  cls: "text-amber-600"   },
-                { label: "Approved",       value: approvedLeave, cls: "text-emerald-600" },
+                {
+                  label: "Pending",
+                  value: pendingLeave,
+                  cls: "text-amber-600",
+                },
+                {
+                  label: "Approved",
+                  value: approvedLeave,
+                  cls: "text-emerald-600",
+                },
                 {
                   label: "This month",
                   value: leaveRequests.filter((l) => {
                     const m = new Date(l.startDate);
                     const n = new Date();
-                    return m.getFullYear() === n.getFullYear() && m.getMonth() === n.getMonth();
+                    return (
+                      m.getFullYear() === n.getFullYear() &&
+                      m.getMonth() === n.getMonth()
+                    );
                   }).length,
                 },
               ].map(({ label, value, cls }) => (
@@ -378,7 +509,9 @@ export default function EmployeesPage() {
                     <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
                       {label}
                     </p>
-                    <p className={`text-2xl font-semibold tabular-nums mt-0.5 ${cls ?? ""}`}>
+                    <p
+                      className={`text-2xl font-semibold tabular-nums mt-0.5 ${cls ?? ""}`}
+                    >
                       {value}
                     </p>
                   </CardContent>
@@ -386,7 +519,6 @@ export default function EmployeesPage() {
               ))}
             </div>
 
-            {/* Table */}
             <Card>
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <div>
@@ -402,18 +534,28 @@ export default function EmployeesPage() {
               </CardHeader>
               <CardContent>
                 {leaveError ? (
-                  <div className="flex items-center gap-2 rounded-md border border-destructive/30
-                                  bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  <div
+                    className="flex items-center gap-2 rounded-md border border-destructive/30
+                                  bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                  >
                     <AlertCircle className="h-4 w-4 shrink-0" />
                     Could not load leave requests. Please refresh.
                   </div>
                 ) : leaveLoading ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Loading…
+                  </p>
                 ) : leaveRequests.length === 0 ? (
                   <div className="py-10 text-center">
                     <CalendarDays className="mx-auto h-8 w-8 text-muted-foreground/40 mb-2" />
-                    <p className="text-sm text-muted-foreground">No leave requests yet.</p>
-                    <Button size="sm" className="mt-3" onClick={() => setLeaveOpen(true)}>
+                    <p className="text-sm text-muted-foreground">
+                      No leave requests yet.
+                    </p>
+                    <Button
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => setLeaveOpen(true)}
+                    >
                       <Plus className="mr-1.5 h-3.5 w-3.5" />
                       Submit first request
                     </Button>
@@ -427,12 +569,9 @@ export default function EmployeesPage() {
 
           {/* Placeholders */}
           <TabsContent value="attendance" className="mt-3">
-            <Card>
-              <CardContent className="p-6 text-sm text-muted-foreground">
-                Attendance heatmap and check-in/out logs.
-              </CardContent>
-            </Card>
+            <AttendanceTab />
           </TabsContent>
+
           <TabsContent value="payroll" className="mt-3">
             <Card>
               <CardContent className="p-6 text-sm text-muted-foreground">
@@ -446,6 +585,9 @@ export default function EmployeesPage() {
                 Reviews, KPIs and 360° feedback cycles.
               </CardContent>
             </Card>
+          </TabsContent>
+          <TabsContent value="settings" className="mt-3">
+            <SettingsTab />
           </TabsContent>
         </Tabs>
       </PageShell>
@@ -465,17 +607,18 @@ export default function EmployeesPage() {
               <CheckCircle2 className="h-10 w-10 text-emerald-500" />
               <p className="text-sm font-medium">Request submitted</p>
               <p className="text-xs text-muted-foreground text-center">
-                An approver has been notified by email and will action it shortly.
+                An approver has been notified and will action it shortly.
               </p>
             </div>
           ) : (
             <form onSubmit={submitLeave} className="space-y-4">
-              {/* Employee picker */}
               <div className="space-y-1.5">
                 <Label>Employee</Label>
                 <Select
                   value={leaveForm.employeeId}
-                  onValueChange={(v) => setLeaveForm((f) => ({ ...f, employeeId: v }))}
+                  onValueChange={(v) =>
+                    setLeaveForm((f) => ({ ...f, employeeId: v }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select employee…" />
@@ -495,32 +638,36 @@ export default function EmployeesPage() {
                 </Select>
               </div>
 
-              {/* Leave type */}
               <div className="space-y-1.5">
                 <Label>Leave Type</Label>
                 <Select
                   value={leaveForm.leaveType}
-                  onValueChange={(v) => setLeaveForm((f) => ({ ...f, leaveType: v }))}
+                  onValueChange={(v) =>
+                    setLeaveForm((f) => ({ ...f, leaveType: v }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {LEAVE_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Dates */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Start Date</Label>
                   <Input
                     type="date"
                     value={leaveForm.startDate}
-                    onChange={(e) => setLeaveForm((f) => ({ ...f, startDate: e.target.value }))}
+                    onChange={(e) =>
+                      setLeaveForm((f) => ({ ...f, startDate: e.target.value }))
+                    }
                     required
                   />
                 </div>
@@ -530,13 +677,14 @@ export default function EmployeesPage() {
                     type="date"
                     value={leaveForm.endDate}
                     min={leaveForm.startDate}
-                    onChange={(e) => setLeaveForm((f) => ({ ...f, endDate: e.target.value }))}
+                    onChange={(e) =>
+                      setLeaveForm((f) => ({ ...f, endDate: e.target.value }))
+                    }
                     required
                   />
                 </div>
               </div>
 
-              {/* Days preview */}
               {previewDays > 0 && (
                 <p className="text-xs text-muted-foreground">
                   Duration:{" "}
@@ -546,35 +694,43 @@ export default function EmployeesPage() {
                 </p>
               )}
 
-              {/* Reason */}
               <div className="space-y-1.5">
                 <Label>
                   Reason{" "}
-                  <span className="text-muted-foreground font-normal">(optional)</span>
+                  <span className="text-muted-foreground font-normal">
+                    (optional)
+                  </span>
                 </Label>
                 <Input
                   placeholder="Brief reason for the request…"
                   value={leaveForm.reason}
-                  onChange={(e) => setLeaveForm((f) => ({ ...f, reason: e.target.value }))}
+                  onChange={(e) =>
+                    setLeaveForm((f) => ({ ...f, reason: e.target.value }))
+                  }
                 />
               </div>
 
               <p className="text-xs text-muted-foreground rounded-md bg-muted px-3 py-2">
                 After submission this goes to the{" "}
-                <span className="font-medium text-foreground">Approvals</span> queue.
-                The employee will receive an email once a decision is made.
+                <span className="font-medium text-foreground">Approvals</span>{" "}
+                queue. The employee will receive a notification once a decision
+                is made.
               </p>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setLeaveOpen(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setLeaveOpen(false)}
+                >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={
                     !leaveForm.employeeId ||
-                    !leaveForm.startDate  ||
-                    !leaveForm.endDate    ||
+                    !leaveForm.startDate ||
+                    !leaveForm.endDate ||
                     createLeaveReq.isPending
                   }
                 >
@@ -587,15 +743,69 @@ export default function EmployeesPage() {
       </Dialog>
 
       {/* ── Add employee dialog ────────────────────────────────────────────── */}
-      <Dialog open={empOpen} onOpenChange={setEmpOpen}>
+      <Dialog
+        open={empOpen}
+        onOpenChange={(open) => {
+          // Reset fully when admin closes the dialog manually
+          if (!open) {
+            setEmpOpen(false);
+            setEmpSuccess(false);
+            setEmpForm(EMPTY_EMP);
+            setCreatedEmp(null);
+          } else {
+            setEmpOpen(true);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add Employee</DialogTitle>
           </DialogHeader>
+
           {empSuccess ? (
-            <div className="flex flex-col items-center gap-2 py-6">
-              <CheckCircle2 className="h-10 w-10 text-success" />
+            // ── Success screen — shows default credentials ──────────────────
+            <div className="flex flex-col items-center gap-4 py-4">
+              <CheckCircle2 className="h-10 w-10 text-emerald-500" />
               <p className="text-sm font-medium">Employee added successfully</p>
+
+              <div className="w-full rounded-md border bg-muted/50 px-4 py-3 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <KeyRound className="h-3.5 w-3.5" />
+                  Login credentials to share with the employee
+                </div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Email</span>
+                    <span className="font-mono font-medium">
+                      {createdEmp?.email}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Password</span>
+                    <span className="font-mono font-medium">
+                      rotech@{createdEmp?.employeeCode?.toLowerCase()}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground pt-1 border-t">
+                  The employee should change this password after their first
+                  login.
+                </p>
+              </div>
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setEmpSuccess(false);
+                  setEmpOpen(false);
+                  setEmpForm(EMPTY_EMP);
+                  setCreatedEmp(null);
+                }}
+              >
+                Done
+              </Button>
             </div>
           ) : (
             <form onSubmit={submitEmp} className="space-y-4">
@@ -605,7 +815,9 @@ export default function EmployeesPage() {
                   <Input
                     placeholder="e.g. Jane Smith"
                     value={empForm.name}
-                    onChange={(e) => setEmpForm((f) => ({ ...f, name: e.target.value }))}
+                    onChange={(e) =>
+                      setEmpForm((f) => ({ ...f, name: e.target.value }))
+                    }
                     required
                   />
                 </div>
@@ -614,7 +826,9 @@ export default function EmployeesPage() {
                   <Input
                     placeholder="e.g. QA Engineer"
                     value={empForm.role}
-                    onChange={(e) => setEmpForm((f) => ({ ...f, role: e.target.value }))}
+                    onChange={(e) =>
+                      setEmpForm((f) => ({ ...f, role: e.target.value }))
+                    }
                     required
                   />
                 </div>
@@ -622,13 +836,28 @@ export default function EmployeesPage() {
                   <Label>Department</Label>
                   <Select
                     value={empForm.department}
-                    onValueChange={(v) => setEmpForm((f) => ({ ...f, department: v }))}
+                    onValueChange={(v) =>
+                      setEmpForm((f) => ({ ...f, department: v }))
+                    }
                   >
-                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select…" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {["Manufacturing","Logistics","Sales","Finance","Human Resources",
-                        "Engineering","Procurement","Operations","ICT"].map((d) => (
-                        <SelectItem key={d} value={d}>{d}</SelectItem>
+                      {[
+                        "Manufacturing",
+                        "Logistics",
+                        "Sales",
+                        "Finance",
+                        "Human Resources",
+                        "Engineering",
+                        "Procurement",
+                        "Operations",
+                        "ICT",
+                      ].map((d) => (
+                        <SelectItem key={d} value={d}>
+                          {d}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -639,7 +868,9 @@ export default function EmployeesPage() {
                     type="email"
                     placeholder="jane.s@rotech.co"
                     value={empForm.email}
-                    onChange={(e) => setEmpForm((f) => ({ ...f, email: e.target.value }))}
+                    onChange={(e) =>
+                      setEmpForm((f) => ({ ...f, email: e.target.value }))
+                    }
                     required
                   />
                 </div>
@@ -648,7 +879,9 @@ export default function EmployeesPage() {
                   <Input
                     type="date"
                     value={empForm.joinedDate}
-                    onChange={(e) => setEmpForm((f) => ({ ...f, joinedDate: e.target.value }))}
+                    onChange={(e) =>
+                      setEmpForm((f) => ({ ...f, joinedDate: e.target.value }))
+                    }
                     required
                   />
                 </div>
@@ -656,9 +889,13 @@ export default function EmployeesPage() {
                   <Label>Status</Label>
                   <Select
                     value={empForm.status}
-                    onValueChange={(v) => setEmpForm((f) => ({ ...f, status: v }))}
+                    onValueChange={(v) =>
+                      setEmpForm((f) => ({ ...f, status: v }))
+                    }
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ACTIVE">Active</SelectItem>
                       <SelectItem value="ON_LEAVE">On Leave</SelectItem>
@@ -666,15 +903,29 @@ export default function EmployeesPage() {
                   </Select>
                 </div>
               </div>
+
+              <p className="text-xs text-muted-foreground rounded-md bg-muted px-3 py-2">
+                A login account will be automatically created for this employee
+                with a default password they can change after first login.
+              </p>
+
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setEmpOpen(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEmpOpen(false)}
+                >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={
-                    !empForm.name || !empForm.role || !empForm.department ||
-                    !empForm.email || !empForm.joinedDate || createEmployee.isPending
+                    !empForm.name ||
+                    !empForm.role ||
+                    !empForm.department ||
+                    !empForm.email ||
+                    !empForm.joinedDate ||
+                    createEmployee.isPending
                   }
                 >
                   {createEmployee.isPending ? "Saving…" : "Add Employee"}
@@ -685,17 +936,27 @@ export default function EmployeesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Cancel confirmation ────────────────────────────────────────────── */}
-      <AlertDialog open={!!cancelTarget} onOpenChange={(o) => !o && setCancelTarget(null)}>
+      {/* ── Cancel leave confirmation ──────────────────────────────────────── */}
+      <AlertDialog
+        open={!!cancelTarget}
+        onOpenChange={(o) => !o && setCancelTarget(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel {cancelTarget?.leaveNumber}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Cancel {cancelTarget?.leaveNumber}?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will withdraw the leave request. The employee will remain{" "}
+              This will withdraw the leave request.
               {cancelTarget?.employeeName && (
-                <span className="font-medium">{cancelTarget.employeeName}'s </span>
+                <>
+                  {" "}
+                  <span className="font-medium">
+                    {cancelTarget.employeeName}
+                  </span>
+                  's status will remain unchanged.
+                </>
               )}
-              status unchanged.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

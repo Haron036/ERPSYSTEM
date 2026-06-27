@@ -9,21 +9,31 @@ export function AuthProvider({ children }) {
   const [error, setError]     = useState(null);
 
   const login = useCallback(async (email, password) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await authApi.login(email, password);
-      token.set(res.token);
-      token.setUser({ email: res.email, fullName: res.fullName, role: res.role });
-      setUser({ email: res.email, fullName: res.fullName, role: res.role });
-      return res;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  setLoading(true);
+  setError(null);
+  try {
+    const res = await authApi.login(email, password);
+    token.set(res.token);
+    token.setUser({
+      email:      res.email,
+      fullName:   res.fullName,
+      role:       res.role,
+      employeeId: res.employeeId ?? null,  
+    });
+    setUser({
+      email:      res.email,
+      fullName:   res.fullName,
+      role:       res.role,
+      employeeId: res.employeeId ?? null,  
+    });
+    return res;
+  } catch (err) {
+    setError(err.message);
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   const logout = useCallback(() => {
     token.clearAll();

@@ -13,6 +13,7 @@ import {
   ticketsApi,
   notificationsApi,
   leaveRequestsApi,
+  attendanceApi ,
   api,
 } from "@/lib/api";
 
@@ -594,5 +595,44 @@ export function useCancelLeaveRequest(options) {
     [QK.leaveRequests, QK.approvalsPending, QK.employees],
     options,
   );
+}
+export function useAttendanceGrid(year, month) {
+  return useQuery({
+    queryKey: ["attendance", "monthly", year, month],
+    queryFn:  () => attendanceApi.getMonthlyGrid(year, month),
+    staleTime: 60_000,
+  });
+}
+
+export function useTodayAttendance(employeeId) {
+  return useQuery({
+    queryKey: ["attendance", "today", employeeId],
+    queryFn:  () => attendanceApi.getTodayStatus(employeeId),
+    enabled:  !!employeeId,
+    staleTime: 0,
+    refetchInterval: 60_000,
+  });
+}
+
+export function useClockIn(options) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (employeeId) => attendanceApi.clockIn(employeeId),
+    onSuccess: (_, employeeId) => {
+      qc.invalidateQueries({ queryKey: ["attendance"] });
+    },
+    ...options,
+  });
+}
+
+export function useClockOut(options) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (employeeId) => attendanceApi.clockOut(employeeId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["attendance"] });
+    },
+    ...options,
+  });
 }
  

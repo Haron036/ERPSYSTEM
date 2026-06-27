@@ -216,3 +216,9 @@ export const api = {
   patch:  (path, body, options)  => apiFetch(path, { ...options, method: "PATCH",  body: JSON.stringify(body) }),
   delete: (path, options)        => apiFetch(path, { ...options, method: "DELETE" }),
 };
+export const attendanceApi = {
+  clockIn:        (employeeId) => api.post(`/attendance/clock-in/${employeeId}`),
+  clockOut:       (employeeId) => api.post(`/attendance/clock-out/${employeeId}`),
+  getTodayStatus: (employeeId) => api.get(`/attendance/today/${employeeId}`),
+  getMonthlyGrid: (year, month) => api.get(`/attendance/monthly?year=${year}&month=${month}`),
+};

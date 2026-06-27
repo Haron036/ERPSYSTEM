@@ -17,8 +17,15 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     try {
-      await login(form.email, form.password);
-      navigate({ to: "/" });
+      const res = await login(form.email, form.password);
+      // ── Role-based redirect ───────────────────────────────────────────────
+      // VIEWERs (employees) go to their personal attendance page.
+      // ADMIN and MANAGER go to the full ERP dashboard.
+      if (res.role === "VIEWER") {
+        navigate({ to: "/my-attendance" });
+      } else {
+        navigate({ to: "/" });
+      }
     } catch (err) {
       setError(err.message || "Invalid email or password");
     }
@@ -27,9 +34,11 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-6">
+
         {/* Brand */}
         <div className="flex flex-col items-center gap-2">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl
+                          bg-primary text-primary-foreground">
             <Factory className="h-6 w-6" />
           </div>
           <h1 className="text-xl font-semibold">ROTECH ERP</h1>
@@ -79,7 +88,10 @@ export default function LoginPage() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground">
-          Default admin: <span className="font-mono">admin@rotech.co</span> / <span className="font-mono">admin123</span>
+          Admin:{" "}
+          <span className="font-mono">admin@rotech.co</span>
+          {" / "}
+          <span className="font-mono">admin123</span>
         </p>
       </div>
     </div>
