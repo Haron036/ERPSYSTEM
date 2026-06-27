@@ -23,7 +23,8 @@ public class ApprovalService {
     private final LeaveRequestRepository leaveRepo;
     private final ApprovalLogRepository logRepo;
     private final AppUserRepository userRepo;
-    private final EmailService             emailService;
+    private final EmailService emailService;
+    private final EmployeeRepository employeeRepo;
 
     // ── Pending queue ─────────────────────────────────────────────────────────
     public List<ApprovalDto.PendingItem> getAllPending() {
@@ -215,6 +216,11 @@ public class ApprovalService {
         String prev = lr.getStatus().name();
         lr.setStatus(LeaveRequest.LeaveStatus.APPROVED);
         leaveRepo.save(lr);
+
+        // ✅ ADD THESE TWO LINES — immediately mark employee ON_LEAVE
+        lr.getEmployee().setStatus(Employee.EmployeeStatus.ON_LEAVE);
+        employeeRepo.save(lr.getEmployee());        // ← inject EmployeeRepository (see below)
+
         saveLog(ApprovalLog.EntityType.LEAVE_REQUEST, id, lr.getLeaveNumber(),
                 actor, ApprovalLog.Action.APPROVED, prev, "APPROVED", comment);
         if (lr.getEmployee() != null && lr.getEmployee().getEmail() != null)
@@ -222,7 +228,6 @@ public class ApprovalService {
                     lr.getEmployee().getEmail(), lr.getEmployee().getName(),
                     lr.getLeaveNumber(), "Leave Request", "APPROVED", comment);
     }
-
     private void rejectLeave(Long id, AppUser actor, String comment) {
         LeaveRequest lr = leaveRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Leave request not found: " + id));

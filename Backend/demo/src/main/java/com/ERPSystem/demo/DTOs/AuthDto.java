@@ -27,6 +27,7 @@ public class AuthDto {
         private String email;
         private String fullName;
         private String role;
+        private Long   employeeId;
     }
 
     @Getter @Setter
@@ -44,5 +45,14 @@ public class AuthDto {
 
 
         private String role;
+    }
+    @Getter @Setter
+    public static class ChangePasswordRequest {
+        @NotBlank(message = "Current password is required")
+        private String currentPassword;
+
+        @NotBlank(message = "New password is required")
+        @Size(min = 6, message = "New password must be at least 6 characters")
+        private String newPassword;
     }
 }

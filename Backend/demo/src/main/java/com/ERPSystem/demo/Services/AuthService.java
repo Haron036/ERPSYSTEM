@@ -4,6 +4,7 @@ import com.ERPSystem.demo.Configuration.JwtUtil;
 import com.ERPSystem.demo.DTOs.AuthDto;
 import com.ERPSystem.demo.Entities.AppUser;
 import com.ERPSystem.demo.Exceptions.ConflictException;
+import com.ERPSystem.demo.Exceptions.ResourceNotFoundException;
 import com.ERPSystem.demo.Repositories.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -22,7 +23,7 @@ public class AuthService {
     private final AuthenticationManager authManager;
 
     public AuthDto.LoginResponse login(AuthDto.LoginRequest req) {
-        Authentication auth = authManager.authenticate(
+        authManager.authenticate(
                 new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword()));
 
         AppUser user = userRepo.findByEmail(req.getEmail()).orElseThrow();
@@ -33,9 +34,9 @@ public class AuthService {
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .role(user.getRole().name())
+                .employeeId(user.getEmployee() != null ? user.getEmployee().getId() : null) // ✅ ADD
                 .build();
     }
-
     public AuthDto.LoginResponse register(AuthDto.RegisterRequest req) {
         if (userRepo.existsByEmail(req.getEmail()))
             throw new ConflictException("Email already registered: " + req.getEmail());
@@ -71,4 +72,17 @@ public class AuthService {
                 .role(user.getRole().name())
                 .build();
     }
+    public void changePassword(String email, AuthDto.ChangePasswordRequest req) {
+        AppUser user = userRepo.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
+
+        // Verify the current password is correct before allowing the change
+        if (!encoder.matches(req.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Current password is incorrect.");
+        }
+
+        user.setPassword(encoder.encode(req.getNewPassword()));
+        userRepo.save(user);
+    }
+
 }

@@ -5,37 +5,39 @@ import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Entity
-@Table(name = "leave_requests")
+@Table(
+        name = "attendance_records",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"employee_id", "date"})
+)
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class LeaveRequest {
 
+public class AttendanceRecord {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(unique = true, nullable = false, length = 20)
-    private String leaveNumber;   // e.g. LV-0001
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id", nullable = false)
     private Employee employee;
 
-    @Enumerated(EnumType.STRING)
-    private LeaveType leaveType = LeaveType.ANNUAL;
-
-    private LocalDate startDate;
-    private LocalDate endDate;
-
-    private String reason;
+    @Column(nullable = false)
+    private LocalDate date;
 
     @Enumerated(EnumType.STRING)
-    private LeaveStatus status = LeaveStatus.PENDING_APPROVAL;
+    @Column(nullable = false)
+    private AttendanceStatus status;
+
+    private LocalTime checkInTime;
+    private LocalTime checkOutTime;
+
+    private String notes;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -44,6 +46,6 @@ public class LeaveRequest {
     @PrePersist void onCreate() { createdAt = updatedAt = LocalDateTime.now(); }
     @PreUpdate  void onUpdate() { updatedAt = LocalDateTime.now(); }
 
-    public enum LeaveType   { ANNUAL, SICK, MATERNITY, PATERNITY, UNPAID }
-    public enum LeaveStatus { PENDING_APPROVAL, APPROVED, REJECTED, CANCELLED,COMPLETED }
+    public enum AttendanceStatus { PRESENT, ABSENT, ON_LEAVE }
+
 }
