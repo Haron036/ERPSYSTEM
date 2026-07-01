@@ -36,6 +36,8 @@ import { KpiCard } from "@/components/kpi-card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import PayrollTab from "../Components/Payroll-tab ";
+
 import {
   Select,
   SelectContent,
@@ -578,6 +580,8 @@ export default function EmployeesPage() {
                 Monthly payroll runs, payslips and tax filings.
               </CardContent>
             </Card>
+            <PayrollTab />
+
           </TabsContent>
           <TabsContent value="performance" className="mt-3">
             <Card>
@@ -589,6 +593,7 @@ export default function EmployeesPage() {
           <TabsContent value="settings" className="mt-3">
             <SettingsTab />
           </TabsContent>
+          
         </Tabs>
       </PageShell>
 

@@ -222,3 +222,17 @@ export const attendanceApi = {
   getTodayStatus: (employeeId) => api.get(`/attendance/today/${employeeId}`),
   getMonthlyGrid: (year, month) => api.get(`/attendance/monthly?year=${year}&month=${month}`),
 };
+export const payrollApi = {
+  getAllSalaries:  ()                      => apiFetch("/payroll/salaries"),
+  getSalary:       (employeeId)            => apiFetch(`/payroll/salary/${employeeId}`),
+  setSalary:       (employeeId, body)      => apiFetch(`/payroll/salary/${employeeId}`, {
+                                               method: "POST", body: JSON.stringify(body) }),
+  runPayroll:      (year, month)           => apiFetch(`/payroll/run?year=${year}&month=${month}`, {
+                                               method: "POST" }),
+  getRunSummary:   (year, month)           => apiFetch(`/payroll/runs?year=${year}&month=${month}`),
+  approveRun:      (year, month)           => apiFetch(`/payroll/approve?year=${year}&month=${month}`, {
+                                               method: "POST" }),
+  getPayslip:      (employeeId, year, month) =>
+                                             apiFetch(`/payroll/runs/${employeeId}?year=${year}&month=${month}`),
+};
+ 

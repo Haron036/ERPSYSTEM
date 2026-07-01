@@ -14,6 +14,7 @@ import {
   notificationsApi,
   leaveRequestsApi,
   attendanceApi ,
+  payrollApi,
   api,
 } from "@/lib/api";
 
@@ -635,4 +636,83 @@ export function useClockOut(options) {
     ...options,
   });
 }
+export function useAllSalaries() {
+  return useQuery({
+    queryKey: ["payroll", "salaries"],
+    queryFn:  payrollApi.getAllSalaries,
+    staleTime: 60_000,
+  });
+}
+ 
+export function usePayrollRun(year, month) {
+  return useQuery({
+    queryKey: ["payroll", "run", year, month],
+    queryFn:  () => payrollApi.getRunSummary(year, month),
+    staleTime: 0,
+    retry: false,         // 404 = not run yet; don't retry
+  });
+}
+ 
+export function useSetSalary(options) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ employeeId, ...body }) => payrollApi.setSalary(employeeId, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payroll", "salaries"] });
+    },
+    ...options,
+  });
+}
+ 
+export function useRunPayroll(options) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ year, month }) => payrollApi.runPayroll(year, month),
+    onSuccess: (_, { year, month }) => {
+      qc.invalidateQueries({ queryKey: ["payroll", "run", year, month] });
+    },
+    ...options,
+  });
+}
+ 
+export function useApprovePayroll(options) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ year, month }) => payrollApi.approveRun(year, month),
+    onSuccess: (_, { year, month }) => {
+      qc.invalidateQueries({ queryKey: ["payroll", "run", year, month] });
+    },
+    ...options,
+  });
+}
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
  
