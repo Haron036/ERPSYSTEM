@@ -11,10 +11,7 @@ public class KenyaPayrollCalculator {
     private static final BigDecimal ZERO = BigDecimal.ZERO;
     private static final RoundingMode RM = RoundingMode.HALF_UP;
 
-    // ── NSSF (New Rates — NSSF Act 2013) ─────────────────────────────────────
-    // Tier I:  6% of pensionable pay up to KES 7,000  → max KES 420
-    // Tier II: 6% of next KES 36,000                  → max KES 2,160
-    // Employer matches employee contribution exactly
+
     public BigDecimal[] nssfContributions(BigDecimal basicSalary) {
         BigDecimal tier1Ceiling = new BigDecimal("7000");
         BigDecimal tier2Ceiling = new BigDecimal("43000"); // 7000 + 36000
@@ -54,15 +51,6 @@ public class KenyaPayrollCalculator {
         return BigDecimal.valueOf(contribution);
     }
 
-    // ── PAYE (Kenya Tax Bands 2024) ───────────────────────────────────────────
-    // Taxable income = gross - NSSF employee - NHIF - Housing Levy employee
-    // Bands (monthly):
-    //   0    – 24,000   → 10%
-    //   24,001 – 32,333 → 25%
-    //   32,334 – 500,000 → 30%
-    //   500,001 – 800,000 → 32.5%
-    //   800,001+          → 35%
-    // Personal relief: KES 2,400/month
     public BigDecimal paye(BigDecimal taxableIncome) {
         if (taxableIncome.compareTo(ZERO) <= 0) return ZERO;
 
